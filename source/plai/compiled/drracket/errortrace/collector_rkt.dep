@@ -1,0 +1,1 @@
+("6.0.1" ("62e0049b5ae380f092f3d34dcc6cdfef13abb925" . "3df6300642fe8b7b6e7755e559341761028f02e7") (collects #"plai" #"private" #"gc-core.rkt") (collects #"scheme" #"runtime-config.rkt") (collects #"plai" #"test-harness.rkt") (collects #"plai" #"datatype.rkt") (collects #"scheme" #"main.rkt"))

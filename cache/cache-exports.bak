@@ -1,0 +1,24 @@
+#lang racket
+
+(provide (all-defined-out))
+
+;write-strategy
+(define after-operation false)
+(define after-write false)
+
+(define (set-exports:after-operation proc)
+  (set! after-operation proc))
+(define (set-exports:after-write! proc)
+  (set! after-write proc))
+
+;eviction strategy
+(define calc-eviction-idx false)
+(define before-eviction false)
+
+(define (set-exports:calc-eviction-idx! proc)
+  (set! calc-eviction-idx proc))
+(define (set-exports:before-eviction! proc)
+  (set! before-eviction proc))
+
+
+                                     

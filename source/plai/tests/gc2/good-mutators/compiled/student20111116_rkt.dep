@@ -1,0 +1,1 @@
+("6.0.1" ("bf359f42329db0a2ad5ab0d7b0e0afef207398ca" . "ee854ba01bc7853eaf318d51a9f55273cba03632") (collects #"scheme" #"runtime-config.rkt") (collects #"plai" #"gc2" #"mutator.rkt") (collects #"plai" #"tests" #"gc2" #"good-collectors" #"good-collector.rkt") (collects #"plai" #"gc2" #"mutator" #"lang" #"reader.rkt"))

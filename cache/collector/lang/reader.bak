@@ -1,0 +1,122 @@
+#lang scheme
+
+(require (for-syntax scheme)
+         plai/datatype
+         plai/test-harness
+         (rename-in plai/private/gc-core 
+                    (heap-ref core:heap-ref)
+                    (heap-set! core:heap-set!))
+         cache/cache-exports
+         )
+
+(provide (except-out (all-from-out scheme) #%module-begin error)
+         (all-from-out plai/datatype)
+         (rename-out
+          [plai-error error])
+         (except-out (all-from-out plai/test-harness))
+         (all-from-out plai/private/gc-core)
+         (rename-out 
+          [cache-module-begin #%module-begin])
+         (rename-out
+          [cache:heap-ref heap-ref]
+          [cache:heap-set! heap-set!]))
+
+;basis-abstractie------------------------------------------------
+(define cache (make-parameter false))
+
+(provide/contract [correct-cache-size? (any/c . -> . boolean?)])
+(define (correct-cache-size? v) 
+  (and (exact-nonnegative-integer? v) (eq? 0 (modulo v cache:set-size))))
+
+(provide/contract (init-cache! (correct-cache-size? . -> . void?)))
+(define (init-cache! size)
+  (set! cache (build-vector size (λ (ix) false))))
+
+(provide/contract (cache-size (-> (or/c false/c exact-nonnegative-integer?))))
+(define (cache-size)
+  (and (vector? cache)(vector-length cache))) 
+
+(provide/contract (cache-ref (exact-nonnegative-integer? . -> . void?)))
+(define (cache-ref location)
+  (vector-ref cache location))
+
+(provide/contract (cache-set! (exact-nonnegative-integer? heap-value? . -> . void?)))
+(define (cache-set! location value)
+  (vector-set! cache location value)
+  (when gui (send gui update-view #:location location)))
+
+(provide/contract (current-cache (-> (boolean? vector?))))
+(define (current-cache)
+  cache)
+
+
+
+
+;cache-onafhankelijke code ----------------------------------------------
+(provide/contract (cache:heap-set! (location? heap-value? . -> . void?)))
+(define (cache:heap-set! location value)
+  
+  ;neem de set van het gezochte adress vast.
+  (define cache-line (cache:get-cache-line location))
+  (define cache-location (cache:get-cache-location cache-line))
+  
+  ;lees waarde uit van adress in set
+  (define cache-adress (and cache-location (core:heap-ref cache-location)))
+  (if (eq? cache-adress location)
+      (begin 
+        ;overschrijf waarde in cache
+        (cache-set! value (+ cache-location 1))
+        (cache:after-write location value))
+      (let ((evic-adress (cache:get-eviction-adress cache-line))) ;bepaal het adres van de waarde om weg te doen
+        (cache:before-eviction evic-adress)
+        ;overschrijf adress in cache
+        (cache-set! evic-adress location)
+        ;overschrijf waarde in cache
+        (cache-set! (+ evic-adress 1) value)
+        (cache:after-write location value))))
+
+(provide/contract (cache:heap-ref (location? . -> . heap-value?)))
+(define (cache:heap-ref location)
+  (define cache-line (cache:get-cache-line location))
+  (define cache-location (cache:get-cache-location cache-line))
+  (define cache-adress (and cache-location (core:heap-ref cache-location)))
+  (if (eq? cache-adress location)
+      ;lees waarde uit cache
+      (core:heap-ref (+ cache-location 1))
+      (let ((heap-value (core:heap-ref location)) ;neem waarde uit niveau lager => hier heap
+            (evic-adress (cache:get-eviction-adress cache-line))) ;bepaal het adres van de waarde om weg te doen
+        (cache:before-eviction evic-adress)
+        ;overschrijf adress in cache
+        (cache-set! evic-adress location)
+        ;overschrijf waarde in cache
+        (cache-set! (+ evic-adress 1) heap-value))))
+
+;(provide cache:set-ui!)
+;(define (cache:set-ui! ui%)
+;  (set! gui (new ui% [heap-vec (current-cache)])))
+
+(define gui false)
+
+(define-syntax (cache-module-begin stx)
+  (syntax-case stx ()
+    [(_ body ...) 
+     (with-syntax ([(cache:get-cache-line cache:get-cache-location cache:set-size cache:after-write
+                                          cache:get-eviction-adress cache:before-eviction)
+    (map (λ (s) (datum->syntax stx s))
+                         '(cache:get-cache-line cache:get-cache-location cache:set-size cache:after-write
+                                          cache:get-eviction-adress cache:before-eviction))])
+       #`(#%module-begin 
+          
+          (require (for-syntax scheme))
+          
+          
+          (provide/contract (cache:get-cache-line (exact-nonnegative-integer? . -> . exact-nonnegative-integer?)))
+          (provide/contract (cache:get-cache-location (exact-nonnegative-integer? exact-nonnegative-integer? -> exact-nonnegative-integer?)))
+          (provide/contract (cache:set-size (-> exact-nonnegative-integer?)))
+          (provide/contract (cache:after-write (exact-nonnegative-integer? exact-nonnegative-integer? ->)))
+          (provide/contract (cache:get-eviction-adress (exact-nonnegative-integer? -> exact-nonnegative-integer?)))
+          (provide/contract (cache:before-eviction (exact-nonnegative-integer? ->)))       
+          
+          body ...
+          
+          ))]))

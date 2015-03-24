@@ -1,0 +1,1 @@
+("6.0.1" ("a9c6df89ae333faaf9b3704c9f5c90401f368b1c" . "1fbd10b7a3bef9af87574ff724a25e2f313f588a") (collects #"scheme" #"runtime-config.rkt") (collects #"cache" #"main.rkt") (collects #"errortrace" #"errortrace-key.rkt") (collects #"scheme" #"main.rkt") (collects #"cache" #"lang" #"reader.rkt"))

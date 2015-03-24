@@ -1,0 +1,1 @@
+("6.0.1" ("60b5e82fa1bc4e89fab2ebb6064f444aa2b15eb3" . "5b3d59b73a361fd072fa825c595169b49d58c8c5") (collects #"scheme" #"runtime-config.rkt") (collects #"srfi" #"13.rkt") (collects #"scheme" #"main.rkt") (collects #"plai" #"private" #"command-line.rkt"))

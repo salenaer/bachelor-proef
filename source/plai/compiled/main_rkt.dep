@@ -1,0 +1,1 @@
+("6.0.1" ("4d998c40c00603f37dbdbfbca4205687ef23ea3f" . "e02a396580ae9f89b8bf907dce97f788baeb59dc") (collects #"plai" #"test-harness.rkt") (collects #"plai" #"datatype.rkt") (collects #"racket" #"runtime-config.rkt") (collects #"racket" #"main.rkt"))
