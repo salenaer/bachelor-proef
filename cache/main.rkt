@@ -61,7 +61,7 @@
 ;reserveer plaats voor data op te slaan + plaats om block adressen op te slaan
 (provide/contract (init-cache! (-> void?)))
 (define (init-cache!)
-  (set! max-blocks (* exports:cache-size exports:block-size))
+  (set! max-blocks (* exports:cache-size exports:set-size))
   (set! cache (build-vector (* max-blocks (+ 1  exports:block-size)) (λ (ix) false))))
 
 (provide/contract [block-header? (any/c . -> . boolean?)])
@@ -85,7 +85,7 @@
 ;geeft false of een block index terug
 (define (calc-block-idx set-adress set-number block-number)
   (define (loop ctr)
-    (cond ((eq? ctr  exports:set-size) #f) ;ctr staat op einde van set, block niet gevonden
+    (cond ((eq? ctr exports:set-size) #f) ;ctr staat op einde van set, block niet gevonden
           ((eq? (cache-ref (+ set-adress (* ctr (+  exports:block-size 1)))) block-number) (+ (* exports:set-size set-number) ctr))
           (else (loop (+ ctr 1)))))
   (loop 0))
@@ -132,6 +132,8 @@
         (cache-set! (+ write-adress idx)(child-read (+ read-adress idx)))
         (loop (+ idx 1))))
     (loop 0))
+  ;(display eviction-block-idx)(newline)
+  ;(print-cache)
   (exports:before-eviction eviction-block-idx (cache-ref eviction-block-adress) (+ 1 eviction-block-adress))
   (cache-set! eviction-block-adress block-number)
   (overwrite-block))

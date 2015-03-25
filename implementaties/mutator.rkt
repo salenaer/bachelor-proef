@@ -1,6 +1,5 @@
 #lang cache/mutator
-
-(allocator-setup "collector.rkt" 200 "directly-mapped-write-through.rkt")
+(allocator-setup "collector.rkt" 200 "directly-mapped-write-back.rkt")
 
 (define (fib a)
   (case a

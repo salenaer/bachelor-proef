@@ -3,7 +3,7 @@
 (define cache:set-size 1)
 (define cache:block-size 5)
 
-(define (cache:after-operation block-number)
+(define (cache:after-operation block-idx)
   (void))
 
 ;wat te doen voor een blok wordt overschreven in een bepaalde set => write through wordt gebruikt dus niets. 
