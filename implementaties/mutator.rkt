@@ -9,6 +9,5 @@
     (else (+ (fib (- a 2))(fib (- a 1))))))
 
 
-(define a (cons 1 fib))
-(first a)
+(define a (make-vector 4 5))
 

@@ -40,6 +40,8 @@
           (collector:first first)
           (collector:rest rest)
           (collector:make-vector make-vector)
+          (collector:vector-ref vector-ref)
+          (collector:vector-set! vector-set!)
           (mutator-quote quote)
           (mutator-top-interaction #%top-interaction)
           (mutator-module-begin #%module-begin)))
@@ -294,19 +296,19 @@
 (define-for-syntax (allocator-setup-internal stx)
   (syntax-case stx ()
     [(collector-module heap-size)
-     (with-syntax ([(init-allocator gc:deref gc:alloc-flat gc:cons 
-                                    gc:first gc:rest 
-                                    gc:flat? gc:cons?
+     (with-syntax ([(init-allocator gc:flat? gc:alloc-flat gc:deref  
+                                    gc:cons? gc:cons 
+                                    gc:first gc:rest  
                                     gc:set-first! gc:set-rest!
-                                    gc:make-vector gc:vector?
-                                    gc:vector-set!)
+                                    gc:vector? gc:make-vector
+                                    gc:vector-ref gc:vector-set!)
                     (map (λ (s) (datum->syntax stx s))
-                         '(init-allocator gc:deref gc:alloc-flat gc:cons 
-                                          gc:first gc:rest 
-                                          gc:flat? gc:cons?
+                         '(init-allocator gc:flat? gc:alloc-flat gc:deref  
+                                          gc:cons? gc:cons 
+                                          gc:first gc:rest  
                                           gc:set-first! gc:set-rest!
-                                          gc:make-vector gc:vector?
-                                          gc:vector-set!
+                                          gc:vector? gc:make-vector
+                                          gc:vector-ref gc:vector-set!
                                           ))]) 
        (begin
          #`(begin
@@ -314,18 +316,22 @@
                    #`(require #,(datum->syntax #'collector-module (alternate-collector)))
                    #`(require collector-module))
              
-             (set-collector:deref! gc:deref)
+             (set-collector:flat?! gc:flat?)
              (set-collector:alloc-flat! gc:alloc-flat)
+             (set-collector:deref! gc:deref)
+                          
+             (set-collector:cons?! gc:cons?)
              (set-collector:cons! gc:cons)
              (set-collector:first! gc:first)
              (set-collector:rest! gc:rest)
-             (set-collector:flat?! gc:flat?)
-             (set-collector:cons?! gc:cons?)
              (set-collector:set-first!! gc:set-first!)
              (set-collector:set-rest!! gc:set-rest!)
+             
+             (set-collector:vector?! gc:vector?)        
              (set-collector:make-vector! gc:make-vector)
-             (set-collector:vector-set!! vector-set!)
-             (set-collector:vector?! gc:vector?)
+             (set-collector:vector-ref! gc:vector-ref)
+             (set-collector:vector-set!! gc:vector-set!)
+
              
              (init-heap! (#%datum . heap-size))
              (when (gui-available?) 
