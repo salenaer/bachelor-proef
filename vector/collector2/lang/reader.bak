@@ -1,2 +1,2 @@
 (module reader syntax/module-reader
-  #:language `vector)
+  #:language `cache/collector-vec)

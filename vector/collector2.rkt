@@ -3,7 +3,7 @@
 (require (for-syntax scheme)
          plai/datatype
          plai/test-harness
-         cache-language/cache)
+         plai/private/gc-core)
 
 (provide (except-out (all-from-out scheme) #%module-begin error)
          (all-from-out plai/private/gc-core)
@@ -32,11 +32,11 @@
 (define-syntax (collector-module-begin stx)
   (syntax-case stx ()
     [(_ body ...) 
-     (with-syntax ([(init-allocator gc:deref gc:alloc-flat gc:cons gc:first gc:rest gc:flat?
-                                    gc:cons? gc:set-first! gc:set-rest!)
+     (with-syntax ([(init-allocator gc:deref gc:alloc-flat gc:cons gc:make-vector gc:first gc:rest gc:flat?
+                                    gc:cons? gc:vector? gc:set-first! gc:set-rest! gc:vector-set!)
                     (map (λ (s) (datum->syntax stx s))
-                         '(init-allocator gc:deref gc:alloc-flat gc:cons gc:first gc:rest gc:flat? 
-                                          gc:cons? gc:set-first! gc:set-rest!))])
+                         '(init-allocator gc:deref gc:alloc-flat gc:cons gc:make-vector gc:first gc:rest gc:flat? 
+                                          gc:cons? gc:vector? gc:set-first! gc:set-rest! gc:vector-set!))])
        #`(#%module-begin 
           
           (require (for-syntax scheme))
@@ -47,15 +47,20 @@
           
           (provide/contract (gc:alloc-flat (heap-value? . -> . location?)))
           (provide/contract (gc:cons (location? location? . -> . location?)))
+          (provide/contract (gc:make-vector (exact-nonnegative-integer? heap-value? . -> . location?)))
           
           (provide/contract (gc:first (location? . -> . location?)))
           (provide/contract (gc:rest (location? . -> . location?)))
           
           (provide/contract (gc:flat? (location? . -> . boolean?)))
           (provide/contract (gc:cons? (location? . -> . boolean?)))
+          (provide/contract (gc:vector? (location? . -> . boolean?)))
           
           (provide/contract (gc:set-first! (location? location? . -> . void?)))
           (provide/contract (gc:set-rest! (location? location? . -> . void?)))
+          (provide/contract (gc:vector-set! (location? exact-nonnegative-integer? location? . -> . void?)))
+          
+          
           
           body ...
           

@@ -1,4 +1,4 @@
-#lang vector/collector2
+#lang cache/collector
 
 (define free-tag 'free)
 (define flat-tag 'flat)
@@ -25,8 +25,8 @@
 
 
 (define (init-allocator) 
-  (for ([i (in-range 0 (heap-size))])
-    (heap-set! i free-tag)))
+  ;(for ([i (in-range 0 (heap-size))])
+  ;  (heap-set! i free-tag)))
 
 (define (gc:deref loc) 
   (cond

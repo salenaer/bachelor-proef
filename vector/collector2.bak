@@ -33,10 +33,10 @@
   (syntax-case stx ()
     [(_ body ...) 
      (with-syntax ([(init-allocator gc:deref gc:alloc-flat gc:cons gc:first gc:rest gc:flat?
-                                    gc:cons? gc:set-first! gc:set-rest!)
+                                    gc:cons? gc:set-first! gc:set-rest! gc:make-vector)
                     (map (λ (s) (datum->syntax stx s))
                          '(init-allocator gc:deref gc:alloc-flat gc:cons gc:first gc:rest gc:flat? 
-                                          gc:cons? gc:set-first! gc:set-rest!))])
+                                          gc:cons? gc:set-first! gc:set-rest! gc:make-vector))])
        #`(#%module-begin 
           
           (require (for-syntax scheme))
@@ -56,6 +56,8 @@
           
           (provide/contract (gc:set-first! (location? location? . -> . void?)))
           (provide/contract (gc:set-rest! (location? location? . -> . void?)))
+          
+          (provide/contract (gc:make-vector (exact-nonnegative-integer? heap-value? . -> . location?)))
           
           body ...
           

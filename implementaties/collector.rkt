@@ -24,7 +24,8 @@
           (n-free-blocks? (+ start 1) (- size 1)))]))
 
 
-(define (init-allocator) 
+(define (init-allocator)
+  (display (heap-size))
   (for ([i (in-range 0 (heap-size))])
     (heap-set! i free-tag)))
 
