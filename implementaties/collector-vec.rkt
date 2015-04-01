@@ -6,7 +6,6 @@
 (define pair-rest-pointer-tag 'prp)
 (define pair-double-pointer-tag 'pdp)
 (define pair-no-pointer-tag 'pnp)
-(define vector-tag 'vector)
 (define vector-no-pointer-tag 'vnp)
 (define vector-all-pointer-tag 'vap)
 
@@ -156,17 +155,39 @@
 
 (define (fill-vector start-adress end-adress reader)
   (unless (equal? start-adress end-adress)
+    (display "filling vector ")(display start-adress)(display " ")(display end-adress)(newline)
     (heap-set! start-adress (reader))
     (fill-vector (+ 1 start-adress) end-adress reader)))
 
-(define (vector-pointer-count vec-idx)
-  (heap-ref (vector-pointer-count-idx vec-idx)))
-(define (vector-pointer-count++ vec-idx)
-  (heap-set! (vector-pointer-count-idx vec-idx)
-             (+ (heap-ref (vector-pointer-count-idx vec-idx)) 1)))
+(define (empty-vector start-adress end-adress writer)
+  (unless (equal? start-adress end-adress)
+    (heap-set! start-adress (writer (heap-ref start-adress)))
+    (empty-vector (+ 1 start-adress) end-adress writer)))
+
+(define (vector-pointer-count++ vec-idx ignore)
+  (let ((pointer-count (heap-ref (vector-pointer-count-idx vec-idx)))
+        (start-adress (vector-idx vec-idx 0)))
+    (heap-set! (vector-pointer-count-idx vec-idx)
+             (+ pointer-count 1))
+    (when (zero? pointer-count)
+      (empty-vector start-adress ignore (lambda (i)(gc:alloc-flat i)))
+      (empty-vector (+ ignore 1)(+ start-adress (heap-ref (vector-size-idx vec-idx))) (lambda (i)(gc:alloc-flat i)))
+      (heap-set! vec-idx vector-all-pointer-tag))))
+
 (define (vector-pointer-count-- vec-idx ignore)
+  (let ((pointer-count (heap-ref (vector-pointer-count-idx vec-idx)))
+        (start-adress (+ (vector-idx vec-idx 0))))
   (heap-set! (vector-pointer-count-idx vec-idx)
-             (- (heap-ref (vector-pointer-count-idx vec-idx)) 1)))
+             (- (heap-ref (vector-pointer-count-idx vec-idx)) 1))
+    (when (equal? 1 pointer-count)
+      (let* ((i start-adress)
+            (reader (lambda ()
+                    (set! i (+ i 1))
+                    (gc:deref (heap-ref (- i 1))))))
+      (fill-vector start-adress ignore reader)
+      (set! i (+ i 1))
+      (fill-vector (+ ignore 1)(+ start-adress (heap-ref (vector-size-idx vec-idx))) reader)
+      (heap-set! vec-idx vector-no-pointer-tag)))))
 
 (define (gc:vector? loc)
   (define tag (heap-ref loc))
@@ -199,18 +220,18 @@
   (vector-check-size pr-ptr idx "vector-set!")
   (if (equal? tag vector-no-pointer-tag)
       (heap-set! write-adress 
-                   (if (gc:flat? new) 
-                       (gc:deref new)
-                       (begin (vector-pointer-count++ pr-ptr)
-                              new)))
+                 (if (gc:flat? new) 
+                     (gc:deref new)
+                     (begin (vector-pointer-count++ pr-ptr write-adress)
+                            new)))
       (let ((old-flat? (gc:flat? write-adress))
             (new-flat? (gc:flat? new)))
         (cond ((and old-flat? new-flat?)
                (heap-set! write-adress (gc:deref new)))
               ((and old-flat? (not new-flat?))
-               (vector-pointer-count++ pr-ptr)
+               (vector-pointer-count++ pr-ptr write-adress)
                (heap-set! write-adress new))
-              ((new-flat?)
+              (new-flat?
                (vector-pointer-count-- pr-ptr write-adress)
                (heap-set! write-adress (gc:deref new)))
               (else (heap-set! write-adress new))))))
@@ -236,6 +257,7 @@
 (define (alloc n get-roots)
   (let ([next (find-free-space 0 n)]) ;find-free-space geeft begin adres terug of false
     (unless next ;als ik er geen gevonden heb doe een garbage-collectie
+      (display "collecting garbage")(newline)
       (collect-garbage get-roots)
       (set! next (find-free-space 0 n))) ;probeer na gc opnieuw plaats te reserveren.
     (if next      
@@ -245,67 +267,153 @@
 (define (collect-garbage get-roots)
   (let ([roots (map read-root (get-roots))])
     (collect-garbage-help roots
-                          (remove* roots (get-all-records 0)))))
+                          (remove* roots (get-all-records 0 '())))))
 
 ;gray zijn alle headers (velden met een tag in) die ik al kan bereiken vanuit een root = geen garbage
 ;white zijn alle headers die ik nog niet heb bereikt vanuit een root = potentieël garbage
+;(define (collect-garbage-help gray-list white-list)
+;  (cond
+;    [(null? gray-list)(free! white-list)]
+;    [else
+;     (case (heap-ref (car gray-list))
+;       [(flat) 
+;        (let ([proc (heap-ref (gc:deref (car gray-list)))])
+;          (if (procedure? proc)
+;              (let ([new-locs (map read-root (procedure-roots proc))])
+;                (collect-garbage-help 
+;                 (add-in new-locs (cdr gray-list) white-list) ;haalt new-locs uit white list en geeft gray-list terug met new-locs in. 
+;                 (remove* new-locs white-list)))
+;              (collect-garbage-help (cdr gray-list) white-list)))]
+;       [(pair-first-pointer-tag) 
+;        (let ([first (heap-ref (first-index (car gray-list)))])
+;          (collect-garbage-help 
+;           (add-in (list first) (cdr gray-list) white-list)
+;           (remove first white-list)))]
+;       [(pair-rest-pointer-tag) 
+;        (let ([rest (heap-ref (rest-index (car gray-list)))])
+;          (collect-garbage-help 
+;           (add-in (list rest) (cdr gray-list) white-list)
+;           (remove rest white-list)))]
+;       [(pair-double-pointer-tag)
+;        (let ([first (heap-ref (first-index (car gray-list)))]
+;              [rest (heap-ref (rest-index (car gray-list)))])
+;          (collect-garbage-help 
+;           (add-in (list first rest) (cdr gray-list) white-list)
+;           (remove rest (remove first white-list))))]
+;       [(pair-no-pointer-tag) 
+;        (collect-garbage-help 
+;         (cdr gray-list)
+;         white-list)]
+;       [(vector-no-pointer-tag)
+;        (collect-garbage-help 
+;         (cdr gray-list)
+;         white-list)]
+;       [(vector-all-pointer-tag)
+;        (let ([pointers (get-all-vector-pointers (car gray-list)(heap-ref (vector-size-idx (car gray-list))) 0 '())])
+;          (collect-garbage-help 
+;           (add-in pointers (cdr gray-list) white-list)
+;           (remove-list pointers white-list)))]
+;       [else
+;        (error 'collect-garbage "unknown tag ~s, loc ~s" (heap-ref (car gray-list)) (car gray-list))])]))
+
 (define (collect-garbage-help gray-list white-list)
   (cond
     [(null? gray-list)(free! white-list)]
     [else
-     (case (heap-ref (car gray-list))
-       [(flat) 
-        (let ([proc (heap-ref (+ (car gray-list) 1))])
-          (if (procedure? proc)
-              (let ([new-locs (map read-root (procedure-roots proc))])
-                (collect-garbage-help 
-                 (add-in new-locs (cdr gray-list) white-list) ;haalt new-locs uit white list en geeft gray-list terug met new-locs in. 
-                 (remove* new-locs white-list)))
-              (collect-garbage-help (cdr gray-list) white-list)))]
-       [(pair) 
-        (let ([first (heap-ref (+ (car gray-list) 1))]
-              [rest (heap-ref (+ (car gray-list) 2))])
+     (let ((tag (heap-ref (car gray-list))))
+       (cond 
+         [(equal? tag flat-tag) 
+          (let ([proc (heap-ref (gc:deref (car gray-list)))])
+            (if (procedure? proc)
+                (let ([new-locs (map read-root (procedure-roots proc))])
+                  (collect-garbage-help 
+                   (add-in new-locs (cdr gray-list) white-list) ;haalt new-locs uit white list en geeft gray-list terug met new-locs in. 
+                   (remove* new-locs white-list)))
+                (collect-garbage-help (cdr gray-list) white-list)))]
+         [(equal? tag pair-first-pointer-tag) 
+          (let ([first (heap-ref (first-index (car gray-list)))])
+            (collect-garbage-help 
+             (add-in (list first) (cdr gray-list) white-list)
+             (remove first white-list)))]
+         [(equal? tag pair-rest-pointer-tag) 
+          (let ([rest (heap-ref (rest-index (car gray-list)))])
+            (collect-garbage-help 
+             (add-in (list rest) (cdr gray-list) white-list)
+             (remove rest white-list)))]
+         [(equal? tag pair-double-pointer-tag)
+          (let ([first (heap-ref (first-index (car gray-list)))]
+                [rest (heap-ref (rest-index (car gray-list)))])
+            (collect-garbage-help 
+             (add-in (list first rest) (cdr gray-list) white-list)
+             (remove rest (remove first white-list))))]
+         [(equal? tag pair-no-pointer-tag) 
           (collect-garbage-help 
-           (add-in (list first rest) (cdr gray-list) white-list)
-           (remove rest (remove first white-list))))]
-       [else
-        (error 'collect-garbage "unknown tag ~s, loc ~s" (heap-ref (car gray-list)) (car gray-list))])]))
-
-(define (free! white-list)
-  (cond
-    [(null? white-list) (void)]
-    [else
-     (let ([white (car white-list)])
-       (case (heap-ref white)
-         [(pair) 
-          (heap-set! white free-tag)
-          (heap-set! (+ white 1) free-tag)
-          (heap-set! (+ white 2) free-tag)]
-         [(flat)
-          (heap-set! white free-tag)
-          (heap-set! (+ white 1) free-tag)]
-         [else 
-          (error 'free! "unknown tag ~s\n" (heap-ref white))])
-       (free! (cdr white-list)))]))
-
-;; add-in : (listof location) (listof location) (listof location) -> (listof location)
-;; computes a new set of gray addresses by addding all white elements of locs to gray
-(define (add-in locs gray white)
-  (cond
-    [(null? locs) gray]
-    [else
-     (let* ([loc (car locs)]
-            [white? (member loc white)])
-       (add-in (cdr locs)
-               (if white? (cons loc gray) gray)
-               white))]))
-
-(define (get-all-records i)
-  (cond
-    [(< i (heap-size))
-     (case (heap-ref i)
-       [(pair) (cons i (get-all-records (+ i 3)))]
-       [(flat) (cons i (get-all-records (+ i 2)))]
-       [(free) (get-all-records (+ i 1))]
-       [else (get-all-records (+ i 1))])]
-    [else null]))
+           (cdr gray-list)
+           white-list)]
+         [(equal? tag vector-no-pointer-tag)
+          (collect-garbage-help 
+           (cdr gray-list)
+           white-list)]
+         [(equal? vector-all-pointer-tag)
+          (let ([pointers (get-all-vector-pointers (car gray-list)(heap-ref (vector-size-idx (car gray-list))) 0 '())])
+            (collect-garbage-help 
+             (add-in pointers (cdr gray-list) white-list)
+             (remove-list pointers white-list)))]
+         (else
+          (error 'collect-garbage "unknown tag ~s, loc ~s" (heap-ref (car gray-list)) (car gray-list)))))]))
+  
+  (define (get-all-vector-pointers vec end idx list)
+    (if (equal? idx end)
+        list
+        (get-all-vector-pointers vec end (+ idx 1) (cons (heap-ref (vector-idx vec idx)) list))))
+  
+  (define (remove-list pointers list)
+    (if (null? pointers)
+        list
+        (remove-list (cdr pointers)(remove (car pointers) list))))
+  
+  (define (free! white-list)
+    (cond
+      [(null? white-list) (void)]
+      [else
+       (let* ([white (car white-list)])
+         (cond
+           ((gc:vector? white)
+            (fill-vector white (+ white vector-overhead (heap-ref (vector-size-idx white))) (lambda () free-tag)))          
+           ((gc:cons? white) 
+            (heap-set! white free-tag)
+            (heap-set! (first-index white) free-tag)
+            (heap-set! (rest-index white) free-tag))
+           ((gc:flat? white)
+            (heap-set! white free-tag)
+            (heap-set! (flat-index white) free-tag))
+           (else 
+            (error 'free! "unknown tag ~s\n" (heap-ref white))))
+         (free! (cdr white-list)))]))
+  
+  ;; add-in : (listof location) (listof location) (listof location) -> (listof location)
+  ;; computes a new set of gray addresses by addding all white elements of locs to gray
+  (define (add-in locs gray white)
+    (cond
+      [(null? locs) gray]
+      [else
+       (let* ([loc (car locs)]
+              [white? (member loc white)])
+         (add-in (cdr locs)
+                 (if white? (cons loc gray) gray)
+                 white))]))
+  
+  (define (get-all-records i list)
+    (if (< i (heap-size))
+        list
+        (cond 
+          ((gc:vector? i)
+           (get-all-records (+ i vector-overhead (heap-ref (vector-size-idx i))) (cons i list)))         
+          ((gc:cons? i) 
+           (get-all-records (+ i pair-size)(cons i list)))
+          ((gc:flat? i)
+           (get-all-records (+ i flat-size)(cons i list)))
+          ((equal? (heap-ref i) free-tag)
+           (get-all-records (+ i 1) list))
+          (else 
+           (error 'get-all-records "unknown tag ~s\n" (heap-ref i))))))
