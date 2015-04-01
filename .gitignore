@@ -13,7 +13,16 @@ $RECYCLE.BIN/
 *.msi
 *.msm
 *.msp
-.bak
+*.bak
+
+cache/compiled/
+experiment/compiled/
+implementatie_no_cache/compiled/
+implementatie/compiled/
+vector/compiled
+Computerwetenschappen/
+source/
+voorbereiding/
 
 # =========================
 # Operating System Files

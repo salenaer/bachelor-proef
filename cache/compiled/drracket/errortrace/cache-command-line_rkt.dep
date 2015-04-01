@@ -1,1 +1,0 @@
-("6.0.1" ("1411afe9eb6daa2bdfa29ea5f5f39fb8964282f1" . "42856e7a0239f6efeb446a8a2f78f4d3b126a517") (collects #"scheme" #"runtime-config.rkt") (collects #"errortrace" #"errortrace-key.rkt") (collects #"scheme" #"main.rkt"))

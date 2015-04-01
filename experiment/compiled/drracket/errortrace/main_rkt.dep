@@ -1,1 +1,0 @@
-("6.0.1" ("2fc6475853ce1f6943807858cd62f7cc3617a2e1" . "78dd9e749fb89841171c96eb0329cdd5b5cd70dd") (collects #"plai" #"test-harness.rkt") (collects #"scheme" #"runtime-config.rkt") (collects #"experiment" #"exports.rkt") (collects #"scheme" #"main.rkt"))
