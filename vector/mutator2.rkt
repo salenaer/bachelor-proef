@@ -526,7 +526,7 @@
               [else 
                (error (format "gc:flat? and gc:cons? both returned false for ~a" loc))])
             (placeholder-get ph)))))
-  (display loc)(newline)
+  ;(display loc)(newline)
   (make-reader-graph (unwrap loc)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
