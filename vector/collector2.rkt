@@ -33,10 +33,10 @@
   (syntax-case stx ()
     [(_ body ...) 
      (with-syntax ([(init-allocator gc:flat? gc:alloc-flat gc:deref gc:cons? gc:cons gc:first gc:rest 
-                                    gc:set-first! gc:set-rest! gc:vector? gc:make-vector gc:vector-ref gc:vector-set!)
+                                    gc:set-first! gc:set-rest! gc:vector? gc:make-vector gc:vector-ref gc:vector-set! gc:vector-size)
                     (map (λ (s) (datum->syntax stx s))
                          '(init-allocator gc:flat? gc:alloc-flat gc:deref gc:cons? gc:cons gc:first gc:rest 
-                                          gc:set-first! gc:set-rest! gc:vector? gc:make-vector gc:vector-ref gc:vector-set!))])
+                                          gc:set-first! gc:set-rest! gc:vector? gc:make-vector gc:vector-ref gc:vector-set! gc:vector-size))])
        #`(#%module-begin 
           (require (for-syntax scheme))
           (provide/contract (init-allocator (-> any)))
@@ -55,6 +55,7 @@
           (provide/contract (gc:vector? (location? . -> . boolean?)))
           (provide/contract (gc:make-vector (exact-nonnegative-integer? heap-value? . -> . location?)))
           (provide/contract (gc:vector-ref (location? exact-nonnegative-integer? . -> . heap-value?)))
-          (provide/contract (gc:vector-set! (location? exact-nonnegative-integer? location? . -> . void?)))    
+          (provide/contract (gc:vector-set! (location? exact-nonnegative-integer? location? . -> . void?)))
+          (provide/contract (gc:vector-size (location? . -> . exact-nonnegative-integer?)))
           body ...
           ))]))

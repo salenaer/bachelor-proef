@@ -1,7 +1,7 @@
 #lang cache
-(define cache:cache-size 3)
+(define cache:cache-size 20)
 (define cache:set-size 1)
-(define cache:block-size 1)
+(define cache:block-size 5)
 
 ;dirty = true
 (define dirty-bits (make-vector (* cache:cache-size cache:set-size) false))
@@ -9,7 +9,7 @@
 (define (write-block-back read-adress write-adress)
   (define (loop ctr)
     (unless (= ctr cache:block-size)
-      (child-write! (+ ctr write-adress) (cache-ref (+ ctr read-adress)))
+      (child-write! (+ ctr write-adress) (cache-ref (+ ctr read-adress) "directly-mapped"))
       (loop (+ ctr 1))))
   (loop 0))
 

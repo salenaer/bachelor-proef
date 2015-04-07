@@ -301,7 +301,8 @@
                                     gc:first gc:rest  
                                     gc:set-first! gc:set-rest!
                                     gc:vector? gc:make-vector
-                                    gc:vector-ref gc:vector-set!)
+                                    gc:vector-ref gc:vector-set!
+                                    gc:vector-size)
                     (map (λ (s) (datum->syntax stx s))
                          '(init-allocator gc:flat? gc:alloc-flat gc:deref  
                                           gc:cons? gc:cons 
@@ -309,6 +310,7 @@
                                           gc:set-first! gc:set-rest!
                                           gc:vector? gc:make-vector
                                           gc:vector-ref gc:vector-set!
+                                          gc:vector-size
                                           ))]) 
        (begin
          #`(begin
@@ -319,7 +321,7 @@
              (set-collector:flat?! gc:flat?)
              (set-collector:alloc-flat! gc:alloc-flat)
              (set-collector:deref! gc:deref)
-                          
+             
              (set-collector:cons?! gc:cons?)
              (set-collector:cons! gc:cons)
              (set-collector:first! gc:first)
@@ -331,7 +333,8 @@
              (set-collector:make-vector! gc:make-vector)
              (set-collector:vector-ref! gc:vector-ref)
              (set-collector:vector-set!! gc:vector-set!)
-
+             (set-collector:vector-size! gc:vector-size)
+             
              
              (init-heap! (#%datum . heap-size))
              (when (gui-available?) 
@@ -521,6 +524,18 @@
                  (placeholder-set! ph (cons car-ph cdr-ph))
                  (placeholder-set! car-ph (unwrap (collector:first loc)))
                  (placeholder-set! cdr-ph (unwrap (collector:rest loc))))]
+              [(collector:vector? loc) ;aangepast
+               (local [(define size (collector:vector-size loc))
+                       (define vec (make-vector (collector:vector-size loc) #f))
+                       (define (vector-for-all idx end proc)
+                         (unless (= idx end)
+                           (proc idx)
+                           (vector-for-all (+ idx 1) end proc)))]
+                 (vector-for-all 0 size (lambda (idx)(let ((vector-ph (make-placeholder unset))
+                                                           (value (collector:vector-ref loc (collector:alloc-flat idx))))
+                                                       (vector-set! vec idx vector-ph)
+                                                       (placeholder-set! vector-ph (unwrap value)))))
+                 (placeholder-set! ph vec))]
               [(number? loc) ;hack kan debuggen serieus blokkeren
                (placeholder-set! ph (heap-ref loc))]
               [else 

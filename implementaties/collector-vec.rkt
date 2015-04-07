@@ -195,7 +195,7 @@
 
 (define (gc:make-vector size-adress init)
   (define size (gc:deref size-adress))
-  (let ([ptr (alloc (+ size vector-overhead)(λ () (get-root-set)))]
+  (let ([ptr (alloc (+ size vector-overhead)(λ () (get-root-set init)))]
         [flat? (gc:flat? init)])
     (heap-set! ptr (if flat? vector-no-pointer-tag vector-all-pointer-tag))
     (heap-set! (vector-size-idx ptr) size)
@@ -234,6 +234,10 @@
                (vector-pointer-count-- pr-ptr write-adress new))
               (else (heap-set! write-adress new))))))
 
+(define (gc:vector-size pr-ptr)
+  (vector-check-size pr-ptr 0 "vector-size")
+  (heap-ref (vector-size-idx pr-ptr)))
+
 ;garbage collection
 (define forward-tag 'forward)
 (define (forward-adress-index i)(+ i 1))
@@ -261,7 +265,6 @@
     (define (scan adress) ;scan door het tijdelijke geheugen en kopieer alle belangrijke data in het nieuwe geheugen
       (when (< adress next-free)
         (let ((tag (vector-ref one-time-memory adress)))
-          (display adress)(display " ")(display next-free)(display " ")(display tag)(newline)
           (cond 
             [(equal? tag flat-tag) 
              (scan (+ adress flat-size))]
@@ -317,17 +320,23 @@
          (vector-set! one-time-memory (rest-index next-free) (heap-ref (rest-index adress))) ;kopieer rest
          (mark-position next-free adress pair-size))         
         ((gc:flat? adress)
-         (vector-set! one-time-memory next-free flat-tag) ;kopieer tag
-         (vector-set! one-time-memory (flat-index next-free)(heap-ref (flat-index adress))) ;kopieer value
-         (mark-position next-free adress flat-size))
+         (let ((value (heap-ref (flat-index adress))))
+           (vector-set! one-time-memory next-free flat-tag) ;kopieer tag
+           (vector-set! one-time-memory (flat-index next-free) value) ;kopieer value
+           (when (procedure? value)
+             (let ([roots (map read-root (procedure-roots value))])
+               (for-each (lambda (root)(set-root! root (move (read-root root))))roots)))
+           (mark-position next-free adress flat-size)))
         (else 
          (error 'gc:move "unknown tag ~s\n" (heap-ref adress)))))
+    (display (current-heap))(newline)
+    (heap-set! 196 'do)
+    (heap-set! 198 'doo)
     (set! next-free 0)
-    (for-each (lambda (root)(move (read-root root)))(get-roots))
+    (for-each (lambda (root)(set-root! root (move (read-root root))))(get-roots))
     (scan 0)
-    (display one-time-memory)
-      
     (do ((index 0 (+ index 1)))
       ((= index (heap-size)))
       (heap-set! index (vector-ref one-time-memory index)))
+    (display (current-heap))(newline)
     ))

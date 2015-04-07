@@ -16,6 +16,7 @@
 (define collector:make-vector false)
 (define collector:vector-ref false)
 (define collector:vector-set! false)
+(define collector:vector-size false)
 
 
 
@@ -48,5 +49,7 @@
   (set! collector:vector-ref proc))
 (define (set-collector:vector-set!! proc)
   (set! collector:vector-set! proc))
+(define (set-collector:vector-size! proc)
+  (set! collector:vector-size proc))
 
 

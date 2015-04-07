@@ -21,14 +21,13 @@
      (define (loop ctr lowest answer)
        (if (eq? ctr cache:set-size)
            answer
-           (let ((new-value (vector-ref time-stamps (+ start ctr)))
-                 (idx (+ start ctr)))
-             (cond ((not new-value) idx)
-                   ((< new-value lowest)(loop (+ ctr 1) new-value idx))
+           (let ((new-value (vector-ref time-stamps (+ start ctr))))
+             (cond ((not new-value) ctr)
+                   ((< new-value lowest)(loop (+ ctr 1) new-value ctr))
                    (else (loop (+ ctr 1) lowest answer))))))
   (loop 0 +inf.0 +inf.0))
 
-(define (test-RLU)
+(define (test-LRU)
   ;set 1
   (vector-set! time-stamps 0 (current-inexact-milliseconds))
   (vector-set! time-stamps 2 (current-inexact-milliseconds))
@@ -49,10 +48,10 @@
   (vector-set! time-stamps 13 (current-inexact-milliseconds))
   (vector-set! time-stamps 14 (current-inexact-milliseconds))
   (display "should return 1: ")(display (cache:calc-eviction-idx 0))(newline)
-  (display "should return 3: ")(display (cache:calc-eviction-idx 1))(newline)
-  (display "should return 7: ")(display (cache:calc-eviction-idx 2))(newline)
-  (display "should return 11: ")(display (cache:calc-eviction-idx 3))(newline)
-  (display "should return 12: ")(display (cache:calc-eviction-idx 4))(newline))
+  (display "should return 0: ")(display (cache:calc-eviction-idx 1))(newline)
+  (display "should return 1: ")(display (cache:calc-eviction-idx 2))(newline)
+  (display "should return 2: ")(display (cache:calc-eviction-idx 3))(newline)
+  (display "should return 0: ")(display (cache:calc-eviction-idx 4))(newline))
   
        
           

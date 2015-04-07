@@ -1,23 +1,14 @@
-#lang vector/mutator2
+#lang cache/mutator
 
-(allocator-setup "collector-vec.rkt" 200)
+(allocator-setup "collector.rkt" 200 "set-associative-write-through.rkt")
+;(allocator-setup "collector.rkt" 200 "directly-mapped-write-through.rkt")
+;(allocator-setup "collector.rkt" 200 "directly-mapped-write-back.rkt")
+
 
 (define (fib a)
   (case a
     ((0) 0)
     ((1) 1)
     (else (+ (fib (- a 2))(fib (- a 1))))))
-
-
-(define a (make-vector 4 5))
-(vector-set! a 0 0)
-(vector-set! a 1 1)
-(vector-set! a 2 2)
-(vector-set! a 3 3)
-(define (turn-pointer) (vector-set! a 2 (cons 1 2)))
-(define (add-pointer)(vector-set! a 3 (cons 1 2)))
-(define (remove-pointer)(vector-set! a 3 3))
-(define (turn-flat)(vector-set! a 2 2))
-;(vector-set! a 2 2)
 
 
