@@ -2,7 +2,7 @@
 
 (allocator-setup "collector.rkt" 200 "set-associative-write-through.rkt")
 ;(allocator-setup "collector.rkt" 200 "directly-mapped-write-through.rkt")
-;(allocator-setup "collector.rkt" 200 "directly-mapped-write-back.rkt")
+;(allocator-setup "collector.rkt" 150 "directly-mapped-write-back.rkt")
 
 
 (define (fib a)

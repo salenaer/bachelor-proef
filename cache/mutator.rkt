@@ -5,8 +5,10 @@
          (for-syntax cache/cache-command-line)
          plai/private/collector-exports
          cache/cache-exports
-         (only-in cache/main init-cache!)
-         plai/private/gc-core
+         (rename-in (only-in cache/main init-cache! set-ui!)
+                    (set-ui! cache:set-ui!))
+         (rename-in plai/private/gc-core
+                     (set-ui! core:set-ui!))
          scheme/gui/dynamic
          (only-in plai/test-harness
                   exn:plai? equal~?
@@ -350,12 +352,14 @@
              (set-cache:before-eviction! cache:before-eviction)       ;aangepast
              
              (init-heap! (#%datum . heap-size))
+             (init-cache!)                                            ;aangepast
              (when (gui-available?) 
                (if (<= (#%datum . heap-size) 500)
-                   (set-ui! (dynamic-require `plai/private/gc-gui 'heap-viz%))
-                   (printf "Large heap; the heap visualizer will not be displayed.\n")))
-             
-             (init-cache!)                                            ;aangepast
+                   (core:set-ui! (dynamic-require `plai/private/gc-gui 'heap-viz%)) ;haal uit plai/private/gc-gui de methode heap-viz% en roep daarmee set-ui! op
+                   (printf "Large heap; the heap visualizer will not be displayed.\n"))
+               (if (<= (* cache:cache-size cache:set-size cache:block-size) 400) ;aangepast
+                   (cache:set-ui! (dynamic-require `cache/cache-gui 'heap-viz%)) ;haal uit plai cache/cache-gui de methode heap-viz% en roep daarmee set-ui! op
+                   (printf "Large cache; the cache visualizer will not be displayed.\n")))
              (init-allocator)
              )))]
     [_ (raise-syntax-error 'mutator 

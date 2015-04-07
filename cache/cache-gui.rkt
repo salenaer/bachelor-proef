@@ -3,6 +3,8 @@
 (provide heap-viz%)
 
 (define row-size 10)
+(define b-size #f)
+(define s-size #f)
 
 (define heap-viz<%> (interface () update-view))
 
@@ -19,7 +21,7 @@
   (class* canvas% (heap-viz<%>)
     
     (init-field heap-vec)
-  
+    
     (define column-widths (make-vector 
                            (cond
                              [(<= (vector-length heap-vec) 300) 10]
@@ -36,7 +38,7 @@
       (redraw-offscreen)
       (recompute-highlighted-cells)
       (on-paint))
-
+    
     (inherit get-dc get-client-size refresh min-width min-height)
     
     (define/private (setup-min-width/height)
@@ -68,7 +70,7 @@
         
         (distribute-extras column-widths (- w vertical-axis-width))
         (distribute-extras row-heights (- h horizontal-axis-height))))
-        
+    
     (define/private (fill-in-min-sizes)
       (let ([dc (get-dc)])
         (let-values ([(w h d a) 
@@ -185,7 +187,7 @@
             (draw-cell dc i #f))
           
           (send dc set-bitmap #f))))
-        
+    
     (define/private (draw-cell dc i highlighted?)
       (let-values ([(cell-x cell-y cell-w cell-h) (cell->ltwh i)])
         (let* ([column (remainder i (vector-length column-widths))]
@@ -198,7 +200,7 @@
                     (val->string (vector-ref heap-vec i))
                     (+ cell-x (- (/ cell-w 2) (/ ow 2)))
                     (+ cell-y (- (/ cell-h 2) (/ oh 2)))))))))
-   
+    
     (define (cell->ltwh i)
       (let* ([column (remainder i (vector-length column-widths))]
              [row (quotient i (vector-length column-widths))]
@@ -207,7 +209,7 @@
         (values cell-x cell-y 
                 (vector-ref column-widths column)
                 (vector-ref row-heights row))))
-          
+    
     (define/override (on-size w h)
       (compute-sizes)
       (redraw-offscreen)
@@ -255,7 +257,7 @@
                 (update-highlighted-cells '())])))]
         [else
          (update-highlighted-cells '())]))
-
+    
     (define/private (index->nexts index)
       (if (< index (vector-length heap-vec))
           (let ([n (vector-ref heap-vec index)])
@@ -291,30 +293,22 @@
 
 (define (setup-colors dc i j highlighted-cell?)
   (send dc set-pen "black" 1 'transparent)
-  (cond
-    [highlighted-cell?
-     (send dc set-brush highlighted-color 'solid)
-     (send dc set-text-foreground (send the-color-database find-color "white"))]
-    [else
-     (send dc set-brush (ij->background-color i j) 'solid)
-     (send dc set-text-foreground (send the-color-database find-color (ij->text-color i j)))]))
+  (send dc set-brush (ij->background-color i j) 'solid)
+  (send dc set-text-foreground (send the-color-database find-color (ij->text-color i j))))
 
 (define (ij->background-color i j)
-  (cond
-    [(zero? i)
-     (if (zero? (modulo j 5))
-         "black"
-         "white")]
-    [(zero? j)
-     (if (zero? (modulo i 2)) 
-         "gray"
-         "white")]
-    [(zero? (modulo j 5))
-     "black"]
-    [(zero? (modulo i 2))
-     "gray"]
-    [else
-     "white"]))
+  (if (or (zero? i)(zero? j))
+      "white"
+      (let ((x (+ (- i 1) (* 10 (- j 1)))))
+        (cond 
+          ((zero? (modulo x s-size))
+           "black")
+          ((zero? (modulo x b-size))
+           "blue")
+          ((even? (quotient x b-size))
+           "white")
+          (else
+           "gray")))))
 
 (define (ij->text-color i j)
   (let ([bkg (ij->background-color i j)])
@@ -328,16 +322,18 @@
   (for/fold ((sum 0))
     ((i (in-range cap)))
     (+ sum (vector-ref v i))))
-    
+
 
 (define heap-viz%
   (class* object% (heap-viz<%>)
-    (init heap-vec)
+    (init heap-vec block-size set-size)
     (define eventspace (make-eventspace))
     (define frame
       (parameterize ([current-eventspace eventspace])
-        (new frame% [label "Heap"])))
+        (new frame% [label "Cache"])))
     (define canvas (new heap-canvas% [parent frame] [heap-vec heap-vec] [style '(no-autoclear)]))
+    (set! b-size block-size)
+    (set! s-size (* block-size set-size))
     (new grow-box-spacer-pane% [parent frame])
     (send frame show #t)
     
@@ -365,5 +361,5 @@
             ;; take priority (important in the case that the mutator is 
             ;; running a tight loop that changes the heap)
             #f))]))
-            
+    
     (super-new)))

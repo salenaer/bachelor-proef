@@ -2,7 +2,7 @@
 (require (for-syntax scheme)
          plai/datatype
          plai/test-harness
-         (rename-in plai/private/gc-core 
+         (rename-in (except-in  plai/private/gc-core set-ui!)
                     (heap-ref core:heap-ref)
                     (heap-set! core:heap-set!))
          (prefix-in exports: cache/cache-exports)
@@ -18,7 +18,8 @@
           [cache-module-begin #%module-begin])
          (rename-out
           [cache-read heap-ref]
-          [cache-write! heap-set!]))
+          [cache-write! heap-set!])
+         set-ui!)
 
 ;basis-abstractie------------------------------------------------
 ;idx => index in logische vector
@@ -31,6 +32,7 @@
 
 (provide cache:set-ui!)
 (define (cache:set-ui! ui%)
+  (display (vector-length cache))
   (set! gui (new ui% [heap-vec cache])))
 
 ;zoek zoveelste waarde op in de cache vector
@@ -184,8 +186,16 @@
       (child-write! memory-adress new-value))
   )
 
+;cache gui code -------------------------------------------------------------------------
+
+(define (set-ui! ui%)
+  (set! gui (new ui% 
+                 [heap-vec cache]
+                 [block-size (+ exports:block-size 1)]
+                 [set-size exports:set-size])))
 (define gui false)
 
+;cache require code ---------------------------------------------------------------------
 (define-syntax (cache-module-begin stx)
   (syntax-case stx ()
     [(_ body ...) 
