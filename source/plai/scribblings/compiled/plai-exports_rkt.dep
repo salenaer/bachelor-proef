@@ -1,1 +1,0 @@
-("6.0.1" ("a4694dd4950fefb66be15dc3f3fe2a1747eca7ff" . "b16867daf512301105689e7a5abf142f6823bbd8") (collects #"scribble" #"manual.rkt") (collects #"plai" #"main.rkt") (collects #"racket" #"runtime-config.rkt") (collects #"racket" #"base.rkt"))

@@ -1,1 +1,0 @@
-("6.0.1" ("434a243e812f34a1514ab1fcb62bc3d188f91876" . "ada640f73aba8c5db21d9b1786ec5faee1b37b84") (collects #"tests" #"eli-tester.rkt") (collects #"plai" #"main.rkt") (collects #"racket" #"runtime-config.rkt") (collects #"plai" #"tests" #"util.rkt") (collects #"syntax" #"parse" #"private" #"runtime-report.rkt") (collects #"plai" #"lang" #"reader.rkt"))
