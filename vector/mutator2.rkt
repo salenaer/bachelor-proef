@@ -42,6 +42,7 @@
           (collector:make-vector make-vector)
           (collector:vector-ref vector-ref)
           (collector:vector-set! vector-set!)
+          (collector:vector-size vector-size)
           (mutator-quote quote)
           (mutator-top-interaction #%top-interaction)
           (mutator-module-begin #%module-begin)))
@@ -525,8 +526,8 @@
                  (placeholder-set! car-ph (unwrap (collector:first loc)))
                  (placeholder-set! cdr-ph (unwrap (collector:rest loc))))]
               [(collector:vector? loc) ;aangepast
-               (local [(define size (collector:vector-size loc))
-                       (define vec (make-vector (collector:vector-size loc) #f))
+               (local [(define size (heap-ref (collector:vector-size loc)))
+                       (define vec (make-vector size #f))
                        (define (vector-for-all idx end proc)
                          (unless (= idx end)
                            (proc idx)
