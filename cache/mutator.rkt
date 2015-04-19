@@ -3,12 +3,12 @@
          plai/private/command-line
          (for-syntax plai/private/command-line)
          (for-syntax cache/cache-command-line)
-         plai/private/collector-exports
+         cache/collector-exports
          cache/cache-exports
          (rename-in (only-in cache/main init-cache! set-ui!)
                     (set-ui! cache:set-ui!))
          (rename-in plai/private/gc-core
-                     (set-ui! core:set-ui!))
+                    (set-ui! core:set-ui!))
          scheme/gui/dynamic
          (only-in plai/test-harness
                   exn:plai? equal~?
@@ -44,6 +44,10 @@
           (collector:cons cons)
           (collector:first first)
           (collector:rest rest)
+          (collector:make-vector make-vector)
+          (collector:vector-ref vector-ref)
+          (collector:vector-set! vector-set!)
+          (collector:vector-length vector-length)
           (mutator-quote quote)
           (mutator-top-interaction #%top-interaction)
           (mutator-module-begin #%module-begin)))
@@ -299,10 +303,14 @@
   (syntax-case stx ()
     [(collector-module heap-size cache-module)          ;aangepast
      (with-syntax ([(init-allocator
-                     gc:deref gc:alloc-flat gc:cons
-                     gc:first gc:rest 
-                     gc:flat? gc:cons?
+                     gc:flat? gc:alloc-flat gc:deref  
+                     gc:cons? gc:cons 
+                     gc:first gc:rest  
                      gc:set-first! gc:set-rest!
+                     gc:vector? gc:make-vector
+                     gc:vector-ref gc:vector-set!
+                     gc:vector-length
+                     
                      cache:cache-size                                ;aangepast
                      cache:set-size                                  ;aangepast
                      cache:block-size                                ;aangepast
@@ -312,10 +320,13 @@
                      cache:after-operation)                          ;aangepast
                     (map (λ (s) (datum->syntax stx s))
                          '(init-allocator 
-                           gc:deref gc:alloc-flat gc:cons 
-                           gc:first gc:rest 
-                           gc:flat? gc:cons?
-                           gc:set-first! gc:set-rest!
+                           gc:flat? gc:alloc-flat gc:deref  
+                                          gc:cons? gc:cons 
+                                          gc:first gc:rest  
+                                          gc:set-first! gc:set-rest!
+                                          gc:vector? gc:make-vector
+                                          gc:vector-ref gc:vector-set!
+                                          gc:vector-length
                            cache:cache-size                          ;aangepast
                            cache:set-size                            ;aangepast
                            cache:block-size                          ;aangepast
@@ -333,15 +344,22 @@
                    #`(require #,(datum->syntax #'cache-module (alternate-cache)))
                    #`(require cache-module))
              
-             (set-collector:deref! gc:deref)
+             (set-collector:flat?! gc:flat?)
              (set-collector:alloc-flat! gc:alloc-flat)
+             (set-collector:deref! gc:deref)
+             
+             (set-collector:cons?! gc:cons?)
              (set-collector:cons! gc:cons)
              (set-collector:first! gc:first)
              (set-collector:rest! gc:rest)
-             (set-collector:flat?! gc:flat?)
-             (set-collector:cons?! gc:cons?)
              (set-collector:set-first!! gc:set-first!)
              (set-collector:set-rest!! gc:set-rest!)
+             
+             (set-collector:vector?! gc:vector?)        
+             (set-collector:make-vector! gc:make-vector)
+             (set-collector:vector-ref! gc:vector-ref)
+             (set-collector:vector-set!! gc:vector-set!)
+             (set-collector:vector-length! gc:vector-length)
              
              (set-cache-size! cache:cache-size)                       ;aangepast
              (set-set-size! cache:set-size)                           ;aangepast
@@ -546,6 +564,20 @@
                  (placeholder-set! ph (cons car-ph cdr-ph))
                  (placeholder-set! car-ph (unwrap (collector:first loc)))
                  (placeholder-set! cdr-ph (unwrap (collector:rest loc))))]
+              [(collector:vector? loc) ;aangepast
+               (local [(define size (heap-ref (collector:vector-length loc)))
+                       (define vec (make-vector size #f))
+                       (define (vector-for-all idx end proc)
+                         (unless (= idx end)
+                           (proc idx)
+                           (vector-for-all (+ idx 1) end proc)))]
+                 (vector-for-all 0 size (lambda (idx)(let ((vector-ph (make-placeholder unset))
+                                                           (value (collector:vector-ref loc (collector:alloc-flat idx))))
+                                                       (vector-set! vec idx vector-ph)
+                                                       (placeholder-set! vector-ph (unwrap value)))))
+                 (placeholder-set! ph vec))]
+              [(number? loc) ;hack kan debuggen serieus blokkeren
+               (placeholder-set! ph (heap-ref loc))]
               [else 
                (error (format "gc:flat? and gc:cons? both returned false for ~a" loc))])
             (placeholder-get ph)))))
