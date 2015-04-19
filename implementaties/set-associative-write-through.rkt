@@ -1,4 +1,5 @@
 #lang cache
+(require rackunit)
 (define cache:cache-size 5)
 (define cache:set-size 3)
 (define cache:block-size 5)
@@ -47,11 +48,11 @@
   (vector-set! time-stamps 12 (current-inexact-milliseconds))
   (vector-set! time-stamps 13 (current-inexact-milliseconds))
   (vector-set! time-stamps 14 (current-inexact-milliseconds))
-  (display "should return 1: ")(display (cache:calc-eviction-idx 0))(newline)
-  (display "should return 0: ")(display (cache:calc-eviction-idx 1))(newline)
-  (display "should return 1: ")(display (cache:calc-eviction-idx 2))(newline)
-  (display "should return 2: ")(display (cache:calc-eviction-idx 3))(newline)
-  (display "should return 0: ")(display (cache:calc-eviction-idx 4))(newline))
+  (check-equal? (cache:calc-eviction-idx 0) 1)
+  (check-equal? (cache:calc-eviction-idx 1) 0)
+  (check-equal? (cache:calc-eviction-idx 2) 1)
+  (check-equal? (cache:calc-eviction-idx 3) 2)
+  (check-equal? (cache:calc-eviction-idx 4) 0))
   
        
           

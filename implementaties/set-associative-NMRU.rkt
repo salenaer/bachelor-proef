@@ -1,4 +1,6 @@
 #lang cache
+(require rackunit)
+
 (define cache:cache-size 5)
 (define cache:set-size 3)
 (define cache:block-size 5)
@@ -21,13 +23,17 @@
   (loop (* set-number cache:set-size)(* (+ 1 set-number) cache:set-size)))
 
 (define (set-flag idx set-number)
-  ;(display "set-flag ")(display set-number)(newline)
+  ;(display "set-flag ")(display idx)(display " ")(display set-number)(newline)
+  (vector-set! flags idx #t)
   (unless (find-false set-number #f)
     (unset-all set-number)
     (vector-set! flags idx #t)))
 
 (define (cache:after-operation block-idx)
-  (set-flag (modulo block-idx (* cache:set-size cache:cache-size)) (modulo cache:cache-size (quotient block-idx cache:set-size))))
+  ;(display flags)(newline)
+  (set-flag block-idx (quotient block-idx cache:set-size))
+  ;(display flags)(newline)
+  )
 
 ;wat te doen voor een blok wordt overschreven in een bepaalde set => write through wordt gebruikt dus niets. 
 (define (cache:before-eviction block-idx block-number source-adress)
@@ -46,13 +52,13 @@
                      #t #t #f
                      #t #f #t
                      #f #t #f))
-  (display "should return 0: ")(display (cache:calc-eviction-idx 0))(newline)
-  (display "should return 1: ")(display (cache:calc-eviction-idx 1))(newline)
-  (display "should return 2: ")(display (cache:calc-eviction-idx 2))(newline)
-  (cache:after-operation 10)
-  (display "should return 0: ")(display (cache:calc-eviction-idx 3))(newline)
-  (cache:after-operation 12)
-  (display "should return 2: ")(display (cache:calc-eviction-idx 4))(newline))
+  (check-equal? (cache:calc-eviction-idx 0) 0)
+  (check-equal? (cache:calc-eviction-idx 1) 1)
+  (check-equal? (cache:calc-eviction-idx 2) 2)
+  (check-equal? (begin (cache:after-operation 10)
+                       (cache:calc-eviction-idx 3)) 0)
+  (check-equal? (begin (cache:after-operation 12)
+                       (cache:calc-eviction-idx 4)) 2))
   
        
           
