@@ -19,9 +19,12 @@
          (rename-out
           [cache-read heap-ref]
           [cache-write! heap-set!])
+         print-stats
          set-ui!)
 
-;basis-abstractie------------------------------------------------
+;-------------------------------------------------------------------------------------------------------
+;                                         basis-abstractie                                        
+;-------------------------------------------------------------------------------------------------------
 ;idx => index in logische vector
 ;block-number => eigenlijk number van blok
 ;bv block 0, 10, 20, 30 gaan allemaal idx 0 krijgen in een cache met max-blocks 10
@@ -65,13 +68,37 @@
 (provide/contract (init-cache! (-> void?)))
 (define (init-cache!)
   (set! max-blocks (* exports:cache-size exports:set-size))
-  (set! cache (build-vector (* max-blocks (+ 1  exports:block-size)) (λ (ix) false))))
+  (set! cache (build-vector (* max-blocks (+ 1  exports:block-size)) (λ (ix) false)))
+  ;(if exports:write-allocation 
+  ;    (set! write-misses (* -1 exports:cache-size exports:set-size))
+  ;    (set! write-misses (* -1 (heap-size))))
+  )
 
 (provide/contract [block-header? (any/c . -> . boolean?)])
 (define (block-header? v)
   (or (exact-nonnegative-integer? v)(boolean? v)))
 
-;cache-onafhankelijke code ----------------------------------------------
+;-------------------------------------------------------------------------------------------------------
+;                                                 testing                                        
+;-------------------------------------------------------------------------------------------------------
+(define (print-block a)
+  (define (loop ctr)
+    (unless (= ctr exports:block-size)
+      (display (cache-ref (+ a ctr) "print"))(display " ")
+      (loop (+ ctr 1))))
+  (display "block: ")
+  (loop 0)
+  (newline))
+(define (print-cache)
+  (define (loop x)
+    (unless (= x max-blocks)
+      (print-block (* x (+ exports:block-size 1)))
+      (loop (+ x 1))))
+  (loop 0))
+
+;-------------------------------------------------------------------------------------------------------
+;                                         cache-onafhankelijke code                                        
+;-------------------------------------------------------------------------------------------------------
 ;op basis van het geheugen adress om te lezen welk blok moet ik vinden
 (define (calc-block-number memory-adress)
   (quotient memory-adress  exports:block-size))
@@ -107,24 +134,6 @@
       (+ (* block-idx (+ exports:block-size 1)) 1)
       false))
 
-;testing
-(define (print-block a)
-  (display "block: ")
-  (display (cache-ref a "print"))(display " ")
-  (display (cache-ref (+ 1 a)"print"))(display " ")
-  (display (cache-ref (+ 2 a)"print"))(display " ")
-  (display (cache-ref (+ 3 a)"print"))(display " ")
-  (display (cache-ref (+ 4 a)"print"))(display " ")
-  (display (cache-ref (+ 5 a)"print"))(display " ")
-  (newline))
-(define (print-cache)
-  (define cache-block-count max-blocks)
-  (define (loop x)
-    (unless (eq? x cache-block-count)
-      (print-block (* x (+ exports:block-size 1)))
-      (loop (+ x 1))))
-  (loop 0))
-
 ;vervang een blok door een ander blok
 (define (replace-block eviction-block-idx eviction-block-adress block-number)
   (define (overwrite-block)
@@ -141,7 +150,41 @@
   (cache-set! eviction-block-adress block-number)
   (overwrite-block))
 
+(define (miss-allocation set-number set-adress block-number)
+  (let* ((eviction-block-idx-in-set (exports:calc-eviction-idx set-number))
+         (eviction-block-adress (+ set-adress (* eviction-block-idx-in-set (+  exports:block-size 1))))
+         (block-index (+ eviction-block-idx-in-set (* set-number  exports:set-size))))
+    (replace-block block-index
+                   eviction-block-adress
+                   block-number)
+    (exports:after-operation block-index)
+    (cons block-index eviction-block-adress)
+    ))
 
+
+;-------------------------------------------------------------------------------------------------------
+;                                              cache-stats                                       
+;-------------------------------------------------------------------------------------------------------
+(define read-hits 0)
+(define write-hits 0)
+(define read-misses 0)
+(define write-misses 0)
+
+(define (print-stats)
+  (display "read-hits: ")(display read-hits)(newline)
+  (display "read-misses: ")(display read-misses)(newline)
+  (display "write-hits: ")(display write-hits)(newline)
+  (display "write-misses: ")(display write-misses)(newline)(newline)
+  (display "total hits: ")(display (+ read-hits write-hits))(newline)
+  (display "total misses: ")(display (+ read-misses write-misses))(newline)(newline)
+  (display "total reads: ")(display (+ read-hits read-misses))(newline)
+  (display "total writes ")(display (+ write-hits write-misses))(newline)(newline)
+  (display "total memory accesses: ")(display (+ read-hits read-misses write-hits write-misses))(newline)
+  (newline))
+
+;-------------------------------------------------------------------------------------------------------
+;                                              cache-read                                        
+;-------------------------------------------------------------------------------------------------------
 (provide/contract (cache-read (location? . -> . heap-value?)))
 (define (cache-read memory-adress)
   (define index-in-block (modulo memory-adress exports:block-size))
@@ -150,43 +193,61 @@
   (define set-adress (calc-set-adress set-number))       ;=> adress 72
   (define block-index (calc-block-idx set-adress set-number block-number))
   (define block-adress (calc-block-adress block-index))
+  ;(display "set-number: ")(display set-number)
+  ;(display " set-adress: ")(display set-adress)(newline)
+  ;(display "block-number: ")(display block-number)
+  ;(display " block-adress: ")(display block-adress)(newline)
+  ;(display "block-index: ")(display block-index)
+  ;(display " index-in-block: ")(display index-in-block)(newline)(newline)
   (if block-adress
       ;cache hit
       ;block-adress is adress van eerste waarde binnen blok
       ;om eigenlijk waarde te lezen kijk op block-adress + index binnen block 
       (begin
+        (set! read-hits (+ read-hits 1))
         (exports:after-operation block-index)
         (cache-ref (+ block-adress index-in-block) "id4"))
       ;cache miss
-      (begin (let* ((eviction-block-idx-in-set (exports:calc-eviction-idx set-number))
-                    (eviction-block-adress (+ set-adress (* eviction-block-idx-in-set (+  exports:block-size 1)))))
-               (set! block-index (+ eviction-block-idx-in-set (* set-number  exports:set-size)))
-               (replace-block block-index
-                              eviction-block-adress
-                              block-number)
-               (exports:after-operation block-index)
-               (cache-ref (+ eviction-block-adress index-in-block 1) "id5")))))
+      (begin 
+        (let ((miss-data (miss-allocation set-number set-adress block-number)))
+          (set! read-misses (+ read-misses 1))
+          (exports:after-operation (car miss-data))
+          (cache-ref (+ (cdr miss-data) index-in-block 1) "id5")))))
 
+;-------------------------------------------------------------------------------------------------------
+;                                                 cache-write!                                        
+;-------------------------------------------------------------------------------------------------------
 (provide/contract (cache-write! (location? heap-value? . -> . void?)))
-(define (cache-write! memory-adress new-value) 
+(define (cache-write! memory-adress new-value)
   (define index-in-block (modulo memory-adress exports:block-size))
   (define block-number (calc-block-number memory-adress));=> blok 5
   (define set-number (calc-set-number block-number))     ;=> set 2
   (define set-adress (calc-set-adress set-number))       ;=> adress 72
   (define block-index (calc-block-idx set-adress set-number block-number))
   (define block-adress (calc-block-adress block-index))
-  (if block-adress
-      ;cache hit
-      ;block-adress is adress van eerste waarde binnen blok
-      ;om eigenlijk waarde te lezen kijk op block-adress + index binnen block 
-      (begin (cache-set! (+ block-adress index-in-block) new-value)
-             (exports:after-operation block-index)
-             (exports:after-write memory-adress new-value block-index))
-      ;cache miss => TODO: write-allocation-strategy nu enkel no-write allocation
-      (child-write! memory-adress new-value))
+  (cond (block-adress
+         ;cache hit
+         ;block-adress is adress van eerste waarde binnen blok
+         ;om eigenlijk waarde te lezen kijk op block-adress + index binnen block 
+         (set! write-hits (+ write-hits 1))
+         (cache-set! (+ block-adress index-in-block) new-value)
+         (exports:after-operation block-index)
+         (exports:after-write memory-adress new-value block-index))
+        (exports:write-allocation
+         (let ((miss-data (miss-allocation set-number set-adress block-number)))
+           (set! write-misses (+ write-misses 1))
+           (cache-set! (+ (cdr miss-data) 1 index-in-block) new-value)
+           (exports:after-operation (car miss-data))
+           (exports:after-write memory-adress new-value (car miss-data))))
+        (else 
+         ;cache miss => TODO: write-allocation-strategy nu enkel no-write allocation
+         (set! write-misses (+ write-misses 1))
+         (child-write! memory-adress new-value)))
   )
 
-;cache gui code -------------------------------------------------------------------------
+;-------------------------------------------------------------------------------------------------------
+;                                                   cache-gui                                       
+;-------------------------------------------------------------------------------------------------------
 
 (define (set-ui! ui%)
   (set! gui (new ui% 
@@ -195,20 +256,23 @@
                  [set-size exports:set-size])))
 (define gui false)
 
-;cache require code ---------------------------------------------------------------------
+;-------------------------------------------------------------------------------------------------------
+;                                                cache-require                                        
+;-------------------------------------------------------------------------------------------------------
 (define-syntax (cache-module-begin stx)
   (syntax-case stx ()
     [(_ body ...) 
-     (with-syntax ([(cache:cache-size cache:set-size cache:block-size cache:after-operation 
-                     cache:after-write cache:calc-eviction-idx cache:before-eviction)
+     (with-syntax ([(cache:cache-size cache:set-size cache:block-size cache:write-allocation 
+                                      cache:after-operation cache:after-write cache:calc-eviction-idx cache:before-eviction)
                     (map (λ (s) (datum->syntax stx s))
-                         '(cache:cache-size cache:set-size cache:block-size cache:after-operation
-                                            cache:after-write cache:calc-eviction-idx cache:before-eviction))])
+                         '(cache:cache-size cache:set-size cache:block-size cache:write-allocation 
+                                            cache:after-operation cache:after-write cache:calc-eviction-idx cache:before-eviction))])
        #`(#%module-begin 
           (require (for-syntax scheme))
           (provide/contract (cache:cache-size exact-nonnegative-integer?))
           (provide/contract (cache:set-size exact-nonnegative-integer?))
           (provide/contract (cache:block-size exact-nonnegative-integer?))
+          (provide/contract (cache:write-allocation boolean?))
           (provide/contract (cache:after-operation (exact-nonnegative-integer? . -> . void?)))
           (provide/contract (cache:after-write (exact-nonnegative-integer? heap-value? exact-nonnegative-integer? . -> . void?)))
           (provide/contract (cache:calc-eviction-idx (exact-nonnegative-integer? . -> . exact-nonnegative-integer?)))

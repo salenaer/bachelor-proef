@@ -15,11 +15,14 @@
   (set! block-size size))
 
 ;write-strategy
+(define write-allocation false) ;boolean om aan te geven of er aan write-allocation gedaan wordt
 (define after-operation false) ;krijgt de index van het blok in de cache, moet ervoor zorgen dat de write strategy correct functioneerd
 ;krijgt het adress om naar te schrijven, de waarde om weg te schrijven en de index van het blok in de cache, 
 ;moet ervoor zorgen dat de write strategy correct functioneerd
 (define after-write false)     
 
+(define (set-cache:write-allocation! bool)
+  (set! write-allocation bool))
 (define (set-cache:after-operation! proc)
   (set! after-operation proc))
 (define (set-cache:after-write! proc)

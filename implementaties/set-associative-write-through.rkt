@@ -3,6 +3,7 @@
 (define cache:cache-size 5)
 (define cache:set-size 3)
 (define cache:block-size 5)
+(define cache:write-allocation false)
 
 (define time-stamps (make-vector (* cache:cache-size cache:set-size) false))
 

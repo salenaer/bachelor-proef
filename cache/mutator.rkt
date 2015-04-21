@@ -5,9 +5,9 @@
          (for-syntax cache/cache-command-line)
          cache/collector-exports
          cache/cache-exports
-         (rename-in (only-in cache/main init-cache! set-ui!)
+         (rename-in (only-in cache/main init-cache! set-ui! print-stats heap-ref)
                     (set-ui! cache:set-ui!))
-         (rename-in plai/private/gc-core
+         (rename-in (except-in plai/private/gc-core heap-ref)
                     (set-ui! core:set-ui!))
          scheme/gui/dynamic
          (only-in plai/test-harness
@@ -21,6 +21,7 @@
 (provide else require provide #%top
          test/location=? 
          test/value=?
+         print-stats
          (rename-out
           [plai-error error]
           
@@ -316,6 +317,7 @@
                      cache:block-size                                ;aangepast
                      cache:calc-eviction-idx                         ;aangepast
                      cache:before-eviction                           ;aangepast
+                     cache:write-allocation                           ;aangepast
                      cache:after-write                               ;aangepast
                      cache:after-operation)                          ;aangepast
                     (map (λ (s) (datum->syntax stx s))
@@ -332,6 +334,7 @@
                            cache:block-size                          ;aangepast
                            cache:calc-eviction-idx                   ;aangepast
                            cache:before-eviction                     ;aangepast
+                           cache:write-allocation                    ;aangepast
                            cache:after-write                         ;aangepast
                            cache:after-operation                     ;aangepast
                            ))]) 
@@ -364,6 +367,7 @@
              (set-cache-size! cache:cache-size)                       ;aangepast
              (set-set-size! cache:set-size)                           ;aangepast
              (set-block-size! cache:block-size)                       ;aangepast
+             (set-cache:write-allocation! cache:write-allocation)     ;aangepast
              (set-cache:after-write! cache:after-write)               ;aangepast
              (set-cache:after-operation! cache:after-operation)       ;aangepast
              (set-cache:calc-eviction-idx! cache:calc-eviction-idx)   ;aangepast

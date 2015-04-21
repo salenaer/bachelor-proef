@@ -331,11 +331,11 @@
         (else 
          (error 'gc:move "unknown tag ~s\n" (heap-ref adress)))))
     (set! next-free 0)
-    (display (current-heap))(newline)
+    ;(display (current-heap))(newline)
     (for-each (lambda (root)(set-root! root (move (read-root root))))(get-roots))
     (scan 0)
     (do ((index 0 (+ index 1)))
       ((= index (heap-size)))
       (heap-set! index (vector-ref one-time-memory index)))
-    (display (current-heap))(newline)
+    ;(display (current-heap))(newline)
     ))

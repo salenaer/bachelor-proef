@@ -5,6 +5,8 @@
 (define cache:set-size 3)
 (define cache:block-size 5)
 
+(define cache:write-allocation false)
+
 (define flags (make-vector (* cache:cache-size cache:set-size) false))
 
 (define (find-false set-number error)

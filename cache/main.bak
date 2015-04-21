@@ -2,7 +2,7 @@
 (require (for-syntax scheme)
          plai/datatype
          plai/test-harness
-         (rename-in plai/private/gc-core 
+         (rename-in (except-in  plai/private/gc-core set-ui!)
                     (heap-ref core:heap-ref)
                     (heap-set! core:heap-set!))
          (prefix-in exports: cache/cache-exports)
@@ -18,7 +18,8 @@
           [cache-module-begin #%module-begin])
          (rename-out
           [cache-read heap-ref]
-          [cache-write! heap-set!]))
+          [cache-write! heap-set!])
+         set-ui!)
 
 ;basis-abstractie------------------------------------------------
 ;idx => index in logische vector
@@ -31,12 +32,13 @@
 
 (provide cache:set-ui!)
 (define (cache:set-ui! ui%)
+  (display (vector-length cache))
   (set! gui (new ui% [heap-vec cache])))
 
 ;zoek zoveelste waarde op in de cache vector
-(provide/contract (cache-ref (location? . -> . heap-value?)))
-(define (cache-ref location)
-  (display location)
+(provide/contract (cache-ref (location? string? . -> . heap-value?)))
+(define (cache-ref location id)
+  ;(display id)(newline)
   (vector-ref cache location))
 
 ;vervang zoveelste waarde in de cache vector
@@ -87,14 +89,14 @@
 (define (calc-block-idx set-adress set-number block-number)
   (define (loop ctr)
     (cond ((eq? ctr exports:set-size) #f) ;ctr staat op einde van set, block niet gevonden
-          ((eq? (cache-ref (+ set-adress (* ctr (+  exports:block-size 1)))) block-number) (+ (* exports:set-size set-number) ctr))
+          ((eq? (cache-ref (+ set-adress (* ctr (+  exports:block-size 1))) "id1") block-number) (+ (* exports:set-size set-number) ctr))
           (else (loop (+ ctr 1)))))
   (loop 0))
 
 (define (get-cache-block set-adress block-number)
   (define (loop ctr)
     (cond ((eq? ctr exports:set-size) #f) ;ctr staat op einde van set, block niet gevonden
-          ((eq? (cache-ref (+ set-adress (* ctr (+ exports:block-size 1)))) block-number) (+ set-adress ctr 1))
+          ((eq? (cache-ref (+ set-adress (* ctr (+ exports:block-size 1))) "id2") block-number) (+ set-adress ctr 1))
           (else (loop (+ ctr 1)))))
   (loop 0))
 
@@ -108,12 +110,12 @@
 ;testing
 (define (print-block a)
   (display "block: ")
-  (display (cache-ref a))(display " ")
-  (display (cache-ref (+ 1 a)))(display " ")
-  (display (cache-ref (+ 2 a)))(display " ")
-  (display (cache-ref (+ 3 a)))(display " ")
-  (display (cache-ref (+ 4 a)))(display " ")
-  (display (cache-ref (+ 5 a)))(display " ")
+  (display (cache-ref a "print"))(display " ")
+  (display (cache-ref (+ 1 a)"print"))(display " ")
+  (display (cache-ref (+ 2 a)"print"))(display " ")
+  (display (cache-ref (+ 3 a)"print"))(display " ")
+  (display (cache-ref (+ 4 a)"print"))(display " ")
+  (display (cache-ref (+ 5 a)"print"))(display " ")
   (newline))
 (define (print-cache)
   (define cache-block-count max-blocks)
@@ -133,11 +135,12 @@
         (cache-set! (+ write-adress idx)(child-read (+ read-adress idx)))
         (loop (+ idx 1))))
     (loop 0))
-  ;(display eviction-block-idx)(newline)
+  ;(display eviction-block-idx)(display " ")(display eviction-block-adress)(newline)
   ;(print-cache)
-  (exports:before-eviction eviction-block-idx (cache-ref eviction-block-adress) (+ 1 eviction-block-adress))
+  (exports:before-eviction eviction-block-idx (cache-ref eviction-block-adress "id3") (+ 1 eviction-block-adress))
   (cache-set! eviction-block-adress block-number)
   (overwrite-block))
+
 
 
 (provide/contract (cache-read (location? . -> . heap-value?)))
@@ -154,7 +157,7 @@
       ;om eigenlijk waarde te lezen kijk op block-adress + index binnen block 
       (begin
         (exports:after-operation block-index)
-        (cache-ref (+ block-adress index-in-block)))
+        (cache-ref (+ block-adress index-in-block) "id4"))
       ;cache miss
       (begin (let* ((eviction-block-idx-in-set (exports:calc-eviction-idx set-number))
                     (eviction-block-adress (+ set-adress (* eviction-block-idx-in-set (+  exports:block-size 1)))))
@@ -163,7 +166,7 @@
                               eviction-block-adress
                               block-number)
                (exports:after-operation block-index)
-               (cache-ref (+ eviction-block-adress index-in-block 1))))))
+               (cache-ref (+ eviction-block-adress index-in-block 1) "id5")))))
 
 (provide/contract (cache-write! (location? heap-value? . -> . void?)))
 (define (cache-write! memory-adress new-value) 
@@ -184,8 +187,16 @@
       (child-write! memory-adress new-value))
   )
 
+;cache gui code -------------------------------------------------------------------------
+
+(define (set-ui! ui%)
+  (set! gui (new ui% 
+                 [heap-vec cache]
+                 [block-size (+ exports:block-size 1)]
+                 [set-size exports:set-size])))
 (define gui false)
 
+;cache require code ---------------------------------------------------------------------
 (define-syntax (cache-module-begin stx)
   (syntax-case stx ()
     [(_ body ...) 

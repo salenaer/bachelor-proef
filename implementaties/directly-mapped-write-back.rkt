@@ -1,8 +1,8 @@
 #lang cache
-(define cache:cache-size 20)
+(define cache:cache-size 10)
 (define cache:set-size 1)
 (define cache:block-size 5)
-
+(define cache:write-allocation true)
 ;dirty = true
 (define dirty-bits (make-vector (* cache:cache-size cache:set-size) false))
 

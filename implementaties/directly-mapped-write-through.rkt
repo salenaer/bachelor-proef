@@ -3,6 +3,8 @@
 (define cache:set-size 1)
 (define cache:block-size 5)
 
+(define cache:write-allocation false)
+
 (define (cache:after-operation block-idx)
   (void))
 
