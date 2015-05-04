@@ -1,0 +1,1 @@
+("6.0.1" ("aa0945cf670c59168321e62fb48e229aab8886ac" . "90092ee6ffa662345a00c5628405480885fb7023") (collects #"scheme" #"runtime-config.rkt") (collects #"rackunit" #"main.rkt") (collects #"cache" #"main.rkt") (collects #"scheme" #"main.rkt") (collects #"cache" #"lang" #"reader.rkt"))

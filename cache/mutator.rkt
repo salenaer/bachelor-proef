@@ -5,7 +5,7 @@
          (for-syntax cache/cache-command-line)
          cache/collector-exports
          cache/cache-exports
-         (rename-in (only-in cache/main init-cache! set-ui! print-stats heap-ref)
+         (rename-in (only-in cache/main init-cache! set-ui! print-stats print-gc-stats heap-ref)
                     (set-ui! cache:set-ui!))
          (rename-in (except-in plai/private/gc-core heap-ref)
                     (set-ui! core:set-ui!))
@@ -22,8 +22,13 @@
          test/location=? 
          test/value=?
          print-stats
+         print-gc-stats
+         newline void 
+         print-roots
          (rename-out
           [plai-error error]
+          [print display]
+          [full-print full-display]
           
           [mutator-and and]
           [mutator-or or]
@@ -56,6 +61,21 @@
 (define-syntax-parameter mutator-name #f)
 (define-syntax-parameter mutator-tail-call? #t)
 (define-syntax-parameter mutator-env-roots empty)
+
+;display
+(define (print ref)
+  (display (gc->scheme ref)))
+
+(define (full-print ref)
+  (let ((gc (gc->scheme ref)))
+    (if (equal? gc ref)
+        (begin (display "not an adress: ")(display ref)(newline))
+        (begin (display "adress: ")(display ref)(display " value: ")(display gc)(newline)))))
+
+(define (print-roots)
+  (display "roots: ")(newline)
+  (for-each (lambda (root)(display root)(display " ")(display (read-root root))(newline))(get-root-set))(newline))
+    
 
 ; Sugar Macros
 (define-syntax-rule (->address e) e)
@@ -454,7 +474,7 @@
 ; User Functions
 (define (mutator-lift f) 
   (lambda args
-    (let ([result (apply f (map collector:deref args))])
+    (let ([result (apply f (map gc->scheme args))]) ;is dit stabiel?
       (if (void? result)
           (void)
           (collector:alloc-flat result)))))
@@ -569,7 +589,7 @@
                  (placeholder-set! car-ph (unwrap (collector:first loc)))
                  (placeholder-set! cdr-ph (unwrap (collector:rest loc))))]
               [(collector:vector? loc) ;aangepast
-               (local [(define size (heap-ref (collector:vector-length loc)))
+               (local [(define size (collector:deref (collector:vector-length loc)))
                        (define vec (make-vector size #f))
                        (define (vector-for-all idx end proc)
                          (unless (= idx end)

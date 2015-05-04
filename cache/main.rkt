@@ -20,6 +20,9 @@
           [cache-read heap-ref]
           [cache-write! heap-set!])
          print-stats
+         print-gc-stats
+         return-stats
+         set-stats!
          set-ui!)
 
 ;-------------------------------------------------------------------------------------------------------
@@ -170,6 +173,12 @@
 (define read-misses 0)
 (define write-misses 0)
 
+(define garbage-collections 0)
+(define gc-read-hits 0)
+(define gc-write-hits 0)
+(define gc-read-misses 0)
+(define gc-write-misses 0)
+
 (define (print-stats)
   (display "read-hits: ")(display read-hits)(newline)
   (display "read-misses: ")(display read-misses)(newline)
@@ -181,6 +190,31 @@
   (display "total writes ")(display (+ write-hits write-misses))(newline)(newline)
   (display "total memory accesses: ")(display (+ read-hits read-misses write-hits write-misses))(newline)
   (newline))
+
+(define (print-gc-stats)
+  (display "read-hits: ")(display gc-read-hits)(newline)
+  (display "read-misses: ")(display gc-read-misses)(newline)
+  (display "write-hits: ")(display gc-write-hits)(newline)
+  (display "write-misses: ")(display gc-write-misses)(newline)(newline)
+  (display "total hits: ")(display (+ gc-read-hits gc-write-hits))(newline)
+  (display "total misses: ")(display (+ gc-read-misses gc-write-misses))(newline)(newline)
+  (display "total reads: ")(display (+ gc-read-hits gc-read-misses))(newline)
+  (display "total writes ")(display (+ gc-write-hits gc-write-misses))(newline)(newline)
+  (display "total memory accesses: ")(display (+ gc-read-hits gc-read-misses gc-write-hits gc-write-misses))(newline)
+  (newline))
+(define (return-stats)
+  (vector read-hits write-hits read-misses write-misses))
+
+(define (set-stats! stats)
+  (set! garbage-collections (+ 1 garbage-collections))
+  (set! gc-read-hits (+ gc-read-hits (- read-hits (vector-ref stats 0))))
+  (set! gc-write-hits (+ gc-write-hits (- write-hits (vector-ref stats 1))))
+  (set! gc-read-misses (+ gc-read-misses (- read-misses (vector-ref stats 2))))
+  (set! gc-write-misses (+ gc-write-misses (- write-misses (vector-ref stats 3))))
+  (set! read-hits (vector-ref stats 0))
+  (set! write-hits (vector-ref stats 1))
+  (set! read-misses (vector-ref stats 2))
+  (set! write-misses (vector-ref stats 3)))
 
 ;-------------------------------------------------------------------------------------------------------
 ;                                              cache-read                                        

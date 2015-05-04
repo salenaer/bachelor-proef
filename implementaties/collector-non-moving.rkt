@@ -195,14 +195,11 @@
       (equal? tag vector-all-pointer-tag)))
 
 (define (gc:make-vector size-adress init)
-  (when (zero? (gc:deref size-adress))(display (current-heap))(newline)
-  (display init)(display " ")(display size-adress)(newline))
   (let* ((size (gc:deref size-adress))
          (ptr (alloc (+ size vector-overhead)(λ () (append (get-root-set) (list (make-root 'init (lambda () init)(lambda (x)(set! init x))))))))
          (flat? (gc:flat? init)))
     (if (zero? size)
-         (begin (display init)(display " ")(display size-adress)(newline)
-        (error "allocating empty vector"))
+        (error "allocating empty vector")
         (begin
           (heap-set! ptr (if flat? vector-no-pointer-tag vector-all-pointer-tag))
           (heap-set! (vector-length-idx ptr) size)
@@ -246,109 +243,136 @@
   (gc:alloc-flat (heap-ref (vector-length-idx pr-ptr))))
 
 ;garbage collection
-(define forward-tag 'forward)
-(define (forward-adress-index i)(+ i 1))
-(define (forward? adress)
-  (equal? (heap-ref adress) forward-tag))
+(define (find-free-space start size)
+  (cond
+    ((= start (heap-size))
+     #f)
+    ((n-free-blocks? start size)
+     start)
+    (else
+     (find-free-space (+ start 1) size))))
 
-(define (find-free-space size)
-  (if (< (+ size next-free) (heap-size))
-      (let ((adress next-free))
-        (set! next-free (+ next-free size))
-        adress)
-      #f))
+(define (n-free-blocks? start size)
+  (cond
+    ((= size 0) #t)
+    ((= start (heap-size)) #f)
+    (else 
+     (and (eq? free-tag (heap-ref start))
+          (n-free-blocks? (+ start 1) (- size 1))))))
 
 (define (alloc n get-roots)
-  (let ((next (find-free-space n))) ;find-free-space geeft begin adres terug of false
+  (let ((next (find-free-space 0 n))) ;find-free-space geeft begin adres terug of false
     (unless next ;als ik er geen gevonden heb doe een garbage-collectie
       (collect-garbage get-roots)
-      (set! next (find-free-space n))) ;probeer na gc opnieuw plaats te reserveren.
+      (set! next (find-free-space 0 n))) ;probeer na gc opnieuw plaats te reserveren.
     (if next      
         next
         (error 'alloc "out of space")))) ;zelf na gc niet genoeg plaats -> memory overflow
 
 (define (collect-garbage get-roots)
-  (let ((one-time-memory (make-vector (heap-size) free-tag))
+  (let ((roots (map read-root (get-roots)))
         (stats (return-stats)))
-    (define (scan adress) ;scan door het tijdelijke geheugen en kopieer alle belangrijke data in het nieuwe geheugen
-      (when (< adress next-free)
-        (let ((tag (vector-ref one-time-memory adress)))
-          (cond 
-            ((equal? tag flat-tag) 
-             (scan (+ adress flat-size)))
-            ((equal? tag pair-first-pointer-tag) 
-             (let ((old-first (vector-ref one-time-memory (first-index adress))))
-               (vector-set! one-time-memory (first-index adress) (move old-first))
-               (scan (+ adress pair-size))))
-            ((equal? tag pair-rest-pointer-tag) 
-             (let ((old-rest (vector-ref one-time-memory (rest-index adress))))
-               (vector-set! one-time-memory (rest-index adress) (move old-rest))
-               (scan (+ adress pair-size))))
-            ((equal? tag pair-double-pointer-tag)
-             (let ((old-first (vector-ref one-time-memory (first-index adress)))
-                   (old-rest (vector-ref one-time-memory (rest-index adress))))
-               (vector-set! one-time-memory (first-index adress) (move old-first))
-               (vector-set! one-time-memory (rest-index adress) (move old-rest))
-               (scan (+ adress pair-size))))
-            ((equal? tag pair-no-pointer-tag) 
-             (scan (+ adress pair-size)))
-            ((equal? tag vector-all-pointer-tag)
-             (let ((size (vector-ref one-time-memory (vector-length-idx adress))))
-               (do ((index 0 (+ index 1)))
-                 ((= index size) 'done)
-                 (vector-set! one-time-memory (vector-idx adress index)
-                              (move (vector-ref one-time-memory (vector-idx adress index)))))
-               (scan (+ adress size vector-overhead))))
-            ((equal? tag vector-no-pointer-tag)
-             (scan (+ adress (vector-ref one-time-memory (vector-length-idx adress)) vector-overhead)))
-            (else
-             (error 'gc-scan "unknown tag ~s, loc ~s" tag adress))))))
-    (define (move adress) ;haal adress x uit het echte geheugen
-      (define (mark-position new-adress old-adress size)
-        (heap-set! old-adress forward-tag) ;zet forward-tag
-        (heap-set! (forward-adress-index old-adress) new-adress) ;zet forward-adress
-        (set! next-free (+ next-free size))
-        new-adress)
+    ;(display "roots: ")(newline)
+    ;(for-each (lambda (root)(display root)(display " ")(display (read-root root))(newline))(get-root-set))(newline)
+    (collect-garbage-help roots
+                          (remove* roots (get-all-records 0)))
+    (set-stats! stats)))
+
+;gray zijn alle headers (velden met een tag in) die ik al kan bereiken vanuit een root = geen garbage
+;white zijn alle headers die ik nog niet heb bereikt vanuit een root = potentieël garbage
+(define (collect-garbage-help gray-list white-list)
+  ;(display gray-list)(newline)
+  (cond
+    ((null? gray-list)(free! white-list))
+    (else
+     (case (heap-ref (car gray-list))
+       ((flat) 
+        (let ((proc (heap-ref (+ (car gray-list) 1))))
+          (if (procedure? proc)
+              (let ((new-locs (map read-root (procedure-roots proc))))
+                (collect-garbage-help 
+                 (add-in new-locs (cdr gray-list) white-list) ;haalt new-locs uit white list en geeft gray-list terug met new-locs in. 
+                 (remove* new-locs white-list)))
+              (collect-garbage-help (cdr gray-list) white-list))))
+       ((plp) 
+        (let ((first (heap-ref (+ (car gray-list) 1))))
+          (collect-garbage-help 
+           (add-in (list first) (cdr gray-list) white-list)
+           (remove first white-list))))
+       ((prp) 
+        (let ((rest (heap-ref (+ (car gray-list) 2))))
+          (collect-garbage-help 
+           (add-in (list rest) (cdr gray-list) white-list)
+           (remove rest white-list))))
+       ((pdp) 
+        (let ((first (heap-ref (+ (car gray-list) 1)))
+              (rest (heap-ref (+ (car gray-list) 2))))
+          (collect-garbage-help 
+           (add-in (list first rest) (cdr gray-list) white-list)
+           (remove rest (remove first white-list)))))
+       ((pnp)
+        (collect-garbage-help (cdr gray-list) white-list))
+       ((vnp)
+        (collect-garbage-help (cdr gray-list) white-list))
+       ((vap)
+        (let ((vector-elems (list-all-from-vector (car gray-list) '() (heap-ref (vector-length-idx (car gray-list))) 0)))
+          (collect-garbage-help
+           (add-in vector-elems (cdr gray-list) white-list)
+           (remove* vector-elems white-list))))
+       (else
+        (error 'collect-garbage "unknown tag ~s, loc ~s" (heap-ref (car gray-list)) (car gray-list)))))))
+
+(define (free! white-list)
+  (cond
+    ((null? white-list) (void))
+    (else
+     (let ((white (car white-list)))
+       (cond
+         ((gc:vector? white)
+          (fill-vector (vector-idx white 0) (vector-idx white (heap-ref (vector-length-idx white))) (lambda (i) free-tag))
+          (heap-set! white free-tag)
+          (heap-set! (vector-length-idx white) free-tag)
+          (heap-set! (vector-pointer-count-idx white) free-tag))      
+         ((gc:cons? white) 
+          (heap-set! white free-tag)
+          (heap-set! (+ white 1) free-tag)
+          (heap-set! (+ white 2) free-tag))
+         ((gc:flat? white)
+          (heap-set! white free-tag)
+          (heap-set! (+ white 1) free-tag))
+         (else 
+          (error 'free! "unknown tag ~s\n" (heap-ref white))))
+       (free! (cdr white-list))))))
+
+(define (list-all-from-vector vector list size ctr)
+  (if (= ctr size)
+      list
+      (list-all-from-vector 
+       vector 
+       (cons 
+        (heap-ref (vector-idx vector ctr))
+        list)
+       size
+       (+ ctr 1))))
+
+;; add-in : (listof location) (listof location) (listof location) -> (listof location)
+;; computes a new set of gray addresses by addding all white elements of locs to gray
+(define (add-in locs gray white)
+  (cond
+    ((null? locs) gray)
+    (else
+     (let* ((loc (car locs))
+            (white? (member loc white)))
+       (add-in (cdr locs)
+               (if white? (cons loc gray) gray)
+               white)))))
+
+(define (get-all-records i)
+  (if (< i (heap-size))
       (cond 
-        ((forward? adress)
-         (heap-ref (forward-adress-index adress)))
-        ((gc:vector? adress)
-         (let ((size (heap-ref (vector-length-idx adress))))
-           (vector-set! one-time-memory next-free (heap-ref adress)) ;kopieer tag
-           (vector-set! one-time-memory (vector-length-idx next-free) size) ;kopieer size
-           (vector-set! one-time-memory (vector-pointer-count-idx next-free) 
-                        (heap-ref (vector-pointer-count-idx adress))) ;kopieer aantal pointers
-           (do ((index 0 (+ index 1)))
-             ((= index size) 'done)
-             (vector-set! one-time-memory (vector-idx next-free index)(heap-ref (vector-idx adress index))))
-           (mark-position next-free adress (+ vector-overhead size)))) 
-        ((gc:cons? adress)
-         (vector-set! one-time-memory next-free (heap-ref adress)) ;kopieer tag
-         (vector-set! one-time-memory (first-index next-free) (heap-ref (first-index adress))) ;kopieer first
-         (vector-set! one-time-memory (rest-index next-free) (heap-ref (rest-index adress))) ;kopieer rest
-         (mark-position next-free adress pair-size))         
-        ((gc:flat? adress)
-         (let ((value (heap-ref (flat-index adress))))
-           (when (procedure? value)
-             (let ((roots (procedure-roots value)))
-               (for-each (lambda (root)(set-root! root (move (read-root root)))) roots)))
-           (vector-set! one-time-memory next-free flat-tag) ;kopieer tag
-           (vector-set! one-time-memory (flat-index next-free) value) ;kopieer value
-           (mark-position next-free adress flat-size)
-           ))
-        (else 
-         (error 'gc:move "unknown tag ~s\n" (heap-ref adress)))))
-    (set! next-free 0)
-    (display "roots: ")(newline)
-    (for-each (lambda (root)(display root)(display " ")(display (read-root root))(newline))(get-roots))(newline)
-    ;(display (current-heap))(newline)w
-    (for-each (lambda (root)(set-root! root (move (read-root root))))(get-roots))
-    (scan 0)
-    (do ((index 0 (+ index 1)))
-      ((= index (heap-size)))
-      (heap-set! index (vector-ref one-time-memory index)))
-    (display "roots: ")(newline)
-    (for-each (lambda (root)(display root)(display " ")(display (read-root root))(newline))(get-roots))(newline)
-    (set-stats! stats)
-    ;(display (current-heap))(newline)
-    ))
+        ((gc:vector? i)(cons i (get-all-records (+ i (heap-ref (vector-length-idx i)) vector-overhead))))
+        ((gc:cons? i) (cons i (get-all-records (+ i pair-size))))
+        ((gc:flat? i) (cons i (get-all-records (+ i flat-size))))
+        ((equal? free-tag (heap-ref i)) (get-all-records (+ i 1)))
+        (else (error 'free! "unknown tag ~s, loc ~s" (heap-ref i) i)))
+      null))

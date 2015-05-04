@@ -7,7 +7,9 @@
                      heap-set!)
          (only-in cache/main  ;aangepast
                   heap-set!
-                  heap-ref))
+                  heap-ref
+                  return-stats
+                  set-stats!))
 
 (provide (all-from-out cache/main) ;aangepast
          (except-out (all-from-out scheme) #%module-begin error)

@@ -1,4 +1,0 @@
-#lang experiment
-
-(define (experiment:button x)
-  (+ x 2))
