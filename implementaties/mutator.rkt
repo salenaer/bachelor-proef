@@ -5,8 +5,7 @@
 ;(allocator-setup "collector.rkt" 200 "set-associative-NMRU.rkt")
 ;(allocator-setup "collector.rkt" 200 "set-associative-write-through.rkt")
 ;(allocator-setup "collector-non-moving.rkt" 200 "directly-mapped-write-through.rkt")
-(allocator-setup "collector-non-moving.rkt" 200 "directly-mapped-write-through.rkt")
-;(allocator-setup "collector.rkt" 150 "directly-mapped-write-back.rkt")
+(allocator-setup "collector-non-moving.rkt" 200 "directly-mapped-write-back.rkt")
 
 (define (map vector proc)
   (map-iter vector proc (vector-length vector) 0))

@@ -21,6 +21,7 @@
           [cache-write! heap-set!])
          print-stats
          print-gc-stats
+         clear-stats
          return-stats
          set-stats!
          set-ui!)
@@ -56,11 +57,13 @@
 ;child read, single layer cache => main memory
 (provide/contract (child-read (location? . -> . heap-value?)))
 (define (child-read location)
+  (set! child-reads (+ child-reads 1))
   (core:heap-ref location))
 
 ;child write, single layer cache => main memory
 (provide/contract (child-write! (location? heap-value? . -> . void?)))
 (define (child-write! location value)
+  (set! child-writes (+ child-writes 1))
   (core:heap-set! location value))
 
 (provide/contract [correct-cache-size? (any/c . -> . boolean?)])
@@ -147,8 +150,6 @@
         (cache-set! (+ write-adress idx)(child-read (+ read-adress idx)))
         (loop (+ idx 1))))
     (loop 0))
-  ;(display eviction-block-idx)(display " ")(display eviction-block-adress)(newline)
-  ;(print-cache)
   (exports:before-eviction eviction-block-idx (cache-ref eviction-block-adress "id3") (+ 1 eviction-block-adress))
   (cache-set! eviction-block-adress block-number)
   (overwrite-block))
@@ -172,6 +173,8 @@
 (define write-hits 0)
 (define read-misses 0)
 (define write-misses 0)
+(define child-reads 0)
+(define child-writes 0)
 
 (define garbage-collections 0)
 (define gc-read-hits 0)
@@ -188,6 +191,9 @@
   (display "total misses: ")(display (+ read-misses write-misses))(newline)(newline)
   (display "total reads: ")(display (+ read-hits read-misses))(newline)
   (display "total writes ")(display (+ write-hits write-misses))(newline)(newline)
+  (display "child-reads: ")(display child-reads)(newline)
+  (display "child-writes: ")(display child-writes)(newline)
+  (display "total child accesses: ")(display (+ child-reads child-writes))(newline)(newline) 
   (display "total memory accesses: ")(display (+ read-hits read-misses write-hits write-misses))(newline)
   (newline))
 
@@ -202,6 +208,22 @@
   (display "total writes ")(display (+ gc-write-hits gc-write-misses))(newline)(newline)
   (display "total memory accesses: ")(display (+ gc-read-hits gc-read-misses gc-write-hits gc-write-misses))(newline)
   (newline))
+
+(define (clear-stats)
+  (set! read-hits 0)
+  (set! write-hits 0)
+  (set! read-misses 0)
+  (set! write-misses 0)
+  (set! child-reads 0)
+  (set! child-writes 0)
+
+  (set! garbage-collections 0)
+  (set! gc-read-hits 0)
+  (set! gc-write-hits 0)
+  (set! gc-read-misses 0)
+  (set! gc-write-misses 0))
+  
+
 (define (return-stats)
   (vector read-hits write-hits read-misses write-misses))
 

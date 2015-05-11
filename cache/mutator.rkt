@@ -5,7 +5,7 @@
          (for-syntax cache/cache-command-line)
          cache/collector-exports
          cache/cache-exports
-         (rename-in (only-in cache/main init-cache! set-ui! print-stats print-gc-stats heap-ref)
+         (rename-in (only-in cache/main init-cache! set-ui! print-stats print-gc-stats clear-stats heap-ref)
                     (set-ui! cache:set-ui!))
          (rename-in (except-in plai/private/gc-core heap-ref)
                     (set-ui! core:set-ui!))
@@ -23,6 +23,7 @@
          test/value=?
          print-stats
          print-gc-stats
+         clear-stats
          newline void 
          print-roots
          (rename-out
@@ -474,7 +475,7 @@
 ; User Functions
 (define (mutator-lift f) 
   (lambda args
-    (let ([result (apply f (map gc->scheme args))]) ;is dit stabiel?
+    (let ([result (apply f (map (lambda(x)(if (collector:flat? x) (collector:deref x) (heap-ref x))) args))]) ;is dit stabiel?
       (if (void? result)
           (void)
           (collector:alloc-flat result)))))
